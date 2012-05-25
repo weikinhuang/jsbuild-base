@@ -10,6 +10,5 @@
 .buildpath
 .project
 test/dev.html
-build/.sizecache.json
-build/.coveragecache.json
+build/.*.json
 coverage/*
