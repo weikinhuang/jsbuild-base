@@ -30,7 +30,8 @@ module.exports = (function(root) {
 	function unitNode(options, callback) {
 		var child = exec.fork(options.dir.build + "/lib/qunit-node-bridge.js", [ JSON.stringify({
 			src : options.src,
-			tests : options.unit
+			tests : options.unit,
+			external : options.external || []
 		}) ], {
 			env : process.env
 		}), results = {}, index = 0;

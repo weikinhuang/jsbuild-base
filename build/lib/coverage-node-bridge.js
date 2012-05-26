@@ -10,6 +10,8 @@ workdir = path.dirname(path.dirname(__dirname)),
 coveragedir = workdir + "/coverage",
 // path the the test dir
 testdir = workdir + "/test",
+// path the the external dir
+vendordir = workdir + "/vendor",
 // read options from commandline
 options = JSON.parse(process.argv[2]),
 // path to the qunit library
@@ -135,7 +137,7 @@ function load(src, root) {
 }
 
 // load dependencies
-load(options.depends || [], "");
+load(options.external || [], vendordir + "/");
 
 // load up the source files
 load(options.src, coveragedir + "/");

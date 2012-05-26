@@ -66,7 +66,8 @@ module.exports = (function(root) {
 	function coverageNode(options, callback) {
 		var child = exec.fork(options.dir.build + "/lib/coverage-node-bridge.js", [ JSON.stringify({
 			src : options.src,
-			tests : options.unit
+			tests : options.unit,
+			external : options.external || []
 		}) ], {
 			env : process.env
 		});
