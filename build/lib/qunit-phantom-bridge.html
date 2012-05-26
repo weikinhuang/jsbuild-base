@@ -21,6 +21,12 @@ window.module = {};
 <script type="text/javascript" src="../../config.js"></script>
 <script type="text/javascript">
 var ___opts = module.exports;
+if(___prev_module == null) {
+	window.module = null;
+	delete window.module;
+} else {
+	window.module = ___prev_module;
+}
 </script>
 <script type="text/javascript">
 (___opts.external || []).forEach(function(file){
@@ -28,7 +34,6 @@ var ___opts = module.exports;
 });
 </script>
 <script type="text/javascript">
-window.module = ___prev_module;
 ___opts.src.forEach(function(file){
 	document.write("\n" + '<scr' + 'ipt type="text/javascript" src="../../src/' + file + '"></scr' + 'ipt>');
 });
