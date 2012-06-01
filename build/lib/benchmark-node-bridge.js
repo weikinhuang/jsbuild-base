@@ -10,6 +10,8 @@ workdir = path.dirname(path.dirname(__dirname)),
 srcdir = workdir + "/src",
 // path the the perf dir
 perfdir = workdir + "/perf",
+// path the the external dir
+vendordir = workdir + "/vendor",
 // read options from commandline
 options = JSON.parse(process.argv[2]),
 // path to the benchmark library
@@ -108,8 +110,8 @@ function load(src, root) {
 	}
 }
 
-// load dependencies
-load(options.depends || [], "");
+//load dependencies
+load(options.external || [], vendordir + "/");
 
 // load up the source files
 load(options.src, srcdir + "/");

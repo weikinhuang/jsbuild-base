@@ -56,7 +56,8 @@ module.exports = (function(root) {
 	function unitNode(options, callback) {
 		var child = exec.fork(options.dir.build + "/lib/benchmark-node-bridge.js", [ JSON.stringify({
 			src : options.src,
-			tests : options.perf
+			tests : options.perf,
+			external : options.external || []
 		}) ], {
 			env : process.env
 		}), results = [], index = 0;
