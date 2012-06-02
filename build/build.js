@@ -139,7 +139,7 @@ var Build = Classify.create({
 		if (this.options.sourceReplace) {
 			var replacer = this.options.sourceReplace;
 			Object.keys(replacer).forEach(function(key) {
-				data.replace(new RegExp("@" + key + "\\b", "g"), replacer[key]);
+				data = data.replace(new RegExp("@" + key + "\\b", "g"), replacer[key]);
 			});
 		}
 		this.sourceCache.full = data;
@@ -222,7 +222,7 @@ var Build = Classify.create({
 		if (this.options.sourceReplace) {
 			var replacer = this.options.sourceReplace;
 			Object.keys(replacer).forEach(function(key) {
-				copy.replace(new RegExp("@" + key + "\\b", "g"), replacer[key]);
+				copy = copy.replace(new RegExp("@" + key + "\\b", "g"), replacer[key]);
 			});
 		}
 		this.sourceCache.copyright = copy;
