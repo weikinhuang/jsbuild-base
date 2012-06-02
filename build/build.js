@@ -213,9 +213,9 @@ var Build = Classify.create({
 			callback(this.sourceCache.copyright);
 			return;
 		}
-		var copy = "", options = this.options;
+		var self = this, copy = "", options = this.options;
 		(options.wrap.copy || []).forEach(function(file) {
-			copy += fs.readFileSync(options.dir.src + "/" + file, "utf-8");
+			copy += fs.readFileSync(self.dir.src + "/" + file, "utf-8");
 		});
 		copy = copy.replace(/@VERSION\b/g, options.version);
 		copy = copy.replace(/@DATE\b/g, (new Date()).toUTCString());
@@ -238,12 +238,13 @@ var Build = Classify.create({
 		try {
 			require(this.dir.build + "/module/" + step.toLowerCase())(this, function(data) {
 				data = data || {};
+				data.name = step;
 				if (!data.time) {
 					data.time = (+new Date()) - self.time;
 				}
 				// trigger error handler
 				if (data.error) {
-					self.onError();
+					self.onError(data);
 					return;
 				}
 				self.printLine("Finished in " + self.color((data.time / 1000).toFixed(3), 171) + " seconds.\n");
