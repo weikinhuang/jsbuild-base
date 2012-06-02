@@ -228,6 +228,24 @@ var Build = Classify.create({
 		this.sourceCache.copyright = copy;
 		callback(copy);
 	},
+	readCacheFile : function(name, callback) {
+		fs.readFile(this.dir.build + "/.cache." + name + ".json", "utf8", function(error, data) {
+			if (error) {
+				callback({});
+				return;
+			}
+			try {
+				callback(JSON.parse(data));
+			} catch (e) {
+				callback({});
+			}
+		});
+	},
+	writeCacheFile : function(name, data, callback) {
+		fs.writeFile(this.dir.build + "/.cache." + name + ".json", JSON.stringify(data, true), "utf8", function() {
+			callback();
+		});
+	},
 	build : function() {
 		this.startTime = new Date();
 		this.steps.serialEach(this.processStep, this.onComplete, this);
@@ -283,11 +301,11 @@ var Build = Classify.create({
 		process.stdout.write(util.format.apply(this, arguments));
 	},
 	lpad : function(str, len, chr) {
-		var padLength = len - str.replace(/\\x1B\[[0-9;]+m/g, "").length;
+		var padLength = len - (str + "").replace(/\\x1B\[[0-9;]+m/g, "").length;
 		return Array(padLength + 1).join(chr || " ") + str;
 	},
 	rpad : function(str, len, chr) {
-		var padLength = len - str.replace(/\\x1B\[[0-9;]+m/g, "").length;
+		var padLength = len - (str + "").replace(/\\x1B\[[0-9;]+m/g, "").length;
 		return padLength + Array(padLength + 1).join(chr || " ");
 	},
 	color : function(string, color) {
