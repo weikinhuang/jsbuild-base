@@ -46,7 +46,7 @@ var UnitTestNodeJs = Classify.create(UnitTest, {
 	init : function(build) {
 		this.parent("NodeJs", build);
 	},
-	start : function(options) {
+	start : function() {
 		this.build.printLine("Running in " + this.build.color(this.name, "bold") + " environment...");
 		var self = this, options = this.build.options;
 

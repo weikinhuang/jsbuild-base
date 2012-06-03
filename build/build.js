@@ -231,13 +231,13 @@ var Build = Classify.create({
 	readCacheFile : function(name, callback) {
 		fs.readFile(this.dir.build + "/.cache." + name + ".json", "utf8", function(error, data) {
 			if (error) {
-				callback({});
+				callback(null);
 				return;
 			}
 			try {
 				callback(JSON.parse(data));
 			} catch (e) {
-				callback({});
+				callback(null);
 			}
 		});
 	},
@@ -306,7 +306,7 @@ var Build = Classify.create({
 	},
 	rpad : function(str, len, chr) {
 		var padLength = len - (str + "").replace(/\\x1B\[[0-9;]+m/g, "").length;
-		return padLength + Array(padLength + 1).join(chr || " ");
+		return str + Array(padLength + 1).join(chr || " ");
 	},
 	color : function(string, color) {
 		if (typeof color === "number") {

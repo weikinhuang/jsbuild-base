@@ -8,6 +8,7 @@ module.exports = function(build, callback) {
 		build.getMinifiedSource(function(min) {
 			build.getGzippedSource(function(zip) {
 				build.readCacheFile("size", function(data) {
+					data = data || {};
 					var sizes = {};
 					sizes[build.options.name + ".js"] = src.length;
 					sizes[build.options.name + ".min.js"] = min.length;
