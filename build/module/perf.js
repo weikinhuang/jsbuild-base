@@ -1,60 +1,67 @@
-module.exports = (function(root) {
+// execute system commands
+var childProcess = require("child_process");
+// classify library
+var Classify = require("../lib/classify.min.js");
+// require the special array library
+require("../lib/classify-array.min.js")(Classify);
+var cArray = Classify("/Array");
 
-	// include the fs mmodule
-	var fs = require("fs"),
-	// execute system commands
-	exec = require("child_process");
-
-	function lpad(str, len, chr) {
-		return (Array(len + 1).join(chr || " ") + str).substr(-len);
-	}
-
-	function rpad(str, len, chr) {
-		return (str + Array(len + 1).join(chr || " ")).substr(0, len);
-	}
-
-	function formatNumber(number) {
-		number = String(number).split('.');
-		return number[0].replace(/(?=(?:\d{3})+$)(?!\b)/g, ',') + (number[1] ? '.' + number[1] : '');
-	}
-
-	function processUnitTestResults(results, prevResults, callback) {
-		var error = 0;
+var Benchmark = Classify.create({
+	init : function(name, build) {
+		this.build = build;
+		this.name = name;
+	},
+	setCallback : function(callback) {
+		this.callback = callback;
+	},
+	onComplete : function() {
+		this.build.printLine();
+		this.callback();
+	},
+	process : function(results, prevResults) {
+		var self = this, error = 0;
 		results.forEach(function(test) {
 			var message = "  ", prevCompare;
 			if (test.error) {
-				message += "\x1B[38;5;160m" + rpad(test.name, 35) + "\x1B[0m";
+				message += "\x1B[38;5;160m" + self.build.rpad(test.name, 35) + "\x1B[0m";
 			} else {
-				message += rpad(test.name, 35);
+				message += self.build.rpad(test.name, 35);
 			}
-			message += lpad(formatNumber(test.hz.toFixed(test.hz < 100 ? 2 : 0)), 12) + " ops/s (\u00B1" + test.stats.rme.toFixed(2) + "%)";
-			message += " [" + formatNumber(test.count) + "x in " + test.times.cycle.toFixed(3) + "s]";
+			message += self.build.lpad(self.build.formatNumber(test.hz.toFixed(test.hz < 100 ? 2 : 0)), 12) + " ops/s (\u00B1" + test.stats.rme.toFixed(2) + "%)";
+			message += " [" + self.build.formatNumber(test.count) + "x in " + test.times.cycle.toFixed(3) + "s]";
 
-			if(prevResults[test.name]) {
+			if (prevResults[test.name]) {
 				prevCompare = test.hz - prevResults[test.name].hz;
 				message += " [Vs. ";
-				message += (prevCompare >= 0 ? "+" : "-") + formatNumber(Math.abs(prevCompare).toFixed(Math.abs(prevCompare) < 100 ? 2 : 0)) + " ops/s";
+				message += (prevCompare >= 0 ? "+" : "-") + self.build.formatNumber(Math.abs(prevCompare).toFixed(Math.abs(prevCompare) < 100 ? 2 : 0)) + " ops/s";
 				message += " (" + (prevCompare >= 0 ? "+" : "-") + Math.abs(((test.hz - prevResults[test.name].hz) / test.hz) * 100).toFixed(3) + "%)";
 				message += "]";
 			}
 
-			callback.log(message);
+			self.build.printLine(message);
 			if (test.error) {
 				error++;
-				callback.log("    \x1B[38;5;160m\u2716 \x1B[0m" + test.error);
+				self.build.printLine("    \x1B[38;5;160m\u2716 \x1B[0m" + test.error);
 			}
 		});
 
 		if (error > 0) {
-			callback.log("\x1B[38;5;160m\u2716 \x1B[0m" + error + " / " + results.length + " Failed");
+			self.build.printLine("\x1B[38;5;160m\u2716 \x1B[0m" + error + " / " + results.length + " Failed");
 		} else {
-			callback.log("\x1B[38;5;34m\u2714 \x1B[0mAll benchmarks run successfully!");
+			self.build.printLine("\x1B[38;5;34m\u2714 \x1B[0mAll benchmarks run successfully!");
 		}
-		callback.log("");
+		self.build.printLine();
 	}
+});
+var BenchmarkNodeJs = Classify.create(Benchmark, {
+	init : function(build) {
+		this.parent("NodeJs", build);
+	},
+	start : function() {
+		this.build.printLine("Running in " + this.build.color(this.name, "bold") + " environment...");
+		var self = this, options = this.build.options;
 
-	function unitNode(options, callback) {
-		var child = exec.fork(options.dir.build + "/lib/benchmark-node-bridge.js", [ JSON.stringify({
+		var child = childProcess.fork(this.build.dir.build + "/lib/benchmark-node-bridge.js", [ JSON.stringify({
 			src : options.src,
 			tests : options.perf,
 			external : options.external || []
@@ -68,17 +75,33 @@ module.exports = (function(root) {
 				results.push(msg.data);
 			} else if (msg.event === "done") {
 				child.kill();
-				callback(results);
+				self.build.readCacheFile("perf." + self.name, function(data) {
+					self.process(results, data || {});
+					var currentPerfStats = {};
+					results.forEach(function(test) {
+						currentPerfStats[test.name] = test;
+					});
+					self.build.writeCacheFile("perf." + self.name, currentPerfStats, function() {
+						self.onComplete();
+					});
+				});
 			}
 		});
 	}
+});
+var BenchmarkPhantomJs = Classify.create(Benchmark, {
+	init : function(build) {
+		this.parent("PhantomJs", build);
+	},
+	start : function() {
+		this.build.printLine("Running in " + this.build.color(this.name, "bold") + " environment...");
+		var self = this;
 
-	function unitPhantom(options, callback) {
-		var child = exec.spawn("phantomjs", [ options.dir.build + "/lib/phantom-bridge.js", options.dir.build + "/lib/benchmark-phantom-bridge.html" ], {
+		var child = childProcess.spawn("phantomjs", [ this.build.dir.build + "/lib/phantom-bridge.js", this.build.dir.build + "/lib/benchmark-phantom-bridge.html" ], {
 			env : process.env
 		}), results = [], index = 0;
 
-		child.stdout.setEncoding("utf-8");
+		child.stdout.setEncoding("utf8");
 		child.stdout.on("data", function(stdout) {
 			stdout.toString().split("{\"event\"").forEach(function(data) {
 				if (!data) {
@@ -90,7 +113,16 @@ module.exports = (function(root) {
 						msg.data.index = ++index;
 						results.push(msg.data);
 					} else if (msg.event === "done") {
-						callback(results);
+						self.build.readCacheFile("perf." + self.name, function(data) {
+							self.process(results, data || {});
+							var currentPerfStats = {};
+							results.forEach(function(test) {
+								currentPerfStats[test.name] = test;
+							});
+							self.build.writeCacheFile("perf." + self.name, currentPerfStats, function() {
+								self.onComplete();
+							});
+						});
 					}
 				} catch (e) {
 					throw e;
@@ -101,56 +133,34 @@ module.exports = (function(root) {
 		child.on("exit", function(code) {
 			// phantomjs doesn't exist
 			if (code === 127) {
-				callback(true);
+				self.build.printLine("\x1B[38;5;160m\u2716 \x1B[0mEnvironment " + self.name + " not found!");
+				self.onComplete();
 			}
 		});
 	}
+});
 
-	return function(options, source, callback) {
-		if(!options.perf || options.perf.length === 0) {
-			return callback();
-		}
-		callback.print("Running benchmarks with Benchmark.js...");
-		var tests = [], complete = function(env, results) {
-			var prevPerfStats = {}, currentPerfStats = {};
-			if (env !== null && results !== true) {
-				try {
-					prevPerfStats = JSON.parse(fs.readFileSync(options.dir.build + "/.perfcache." + env + ".json", "utf8"));
-				} catch (e) {
-				}
-				processUnitTestResults(results, prevPerfStats, callback);
-				results.forEach(function(test) {
-					currentPerfStats[test.name] = test;
-				});
-				fs.writeFileSync(options.dir.build + "/.perfcache." + env + ".json", JSON.stringify(currentPerfStats, true), "utf8");
-
-			}
-			if (results === true) {
-				callback.log("\x1B[38;5;160m\u2716 \x1B[0mEnvironment " + env + " not found!");
-				callback.log("");
-			}
-			if (tests.length === 0) {
-				return callback();
-			}
-			(tests.shift())();
-		};
-		if (options.env.node === true) {
-			tests.push(function() {
-				callback.log("Running in \x1B[39;1mNodeJs\x1B[0m environment...");
-				unitNode(options, function(results) {
-					complete("NodeJs", results);
-				});
-			});
-		}
-		if (options.env.web === true) {
-			tests.push(function() {
-				callback.log("Running in \x1B[39;1mPhantomJs\x1B[0m environment...");
-				unitPhantom(options, function(results) {
-					complete("PhantomJs", results);
-				});
-			});
-		}
-		// start the unit tests
-		complete(null);
-	};
-})(global);
+module.exports = function(build, callback) {
+	build.printHeader(build.color("Running benchmarks with Benchmark.js...", "bold"));
+	var tests = cArray();
+	if (build.options.env.node === true) {
+		tests.push(new BenchmarkNodeJs(build));
+	}
+	if (build.options.env.web === true) {
+		tests.push(new BenchmarkPhantomJs(build));
+	}
+	tests.serialEach(function(next, test) {
+		test.setCallback(next);
+		test.start();
+	}, function() {
+		var failed = 0, runtime = 0;
+		tests.forEach(function(test) {
+			failed += test.failed;
+			runtime += test.runtime;
+		});
+		callback({
+			error : failed > 0 ? new Error(failed + " Unit Test(s) failed.") : null,
+			time : runtime
+		});
+	});
+};
