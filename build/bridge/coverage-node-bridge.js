@@ -35,7 +35,8 @@ var sandbox = {
 	String : String,
 	RegExp : RegExp,
 	Array : Array,
-	Date : Date
+	Date : Date,
+	Error : Error
 };
 // window is a circualr reference
 sandbox.window = sandbox;

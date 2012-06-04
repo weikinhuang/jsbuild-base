@@ -1006,7 +1006,6 @@ function done() {
 }
 
 function validTest( test ) {
-debugger;
 	var include,
 		filter = (config.filter || "").toLowerCase(),
 		fullName = (test.module + ": " + test.testName).toLowerCase();

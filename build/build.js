@@ -100,6 +100,7 @@ var Build = Classify.create({
 			build : __DIR__ + "/build",
 			dist : __DIR__ + "/dist",
 			src : __DIR__ + "/src",
+			test : __DIR__ + "/test",
 			coverage : __DIR__ + "/coverage",
 			doc : __DIR__ + "/docs",
 			vendor : __DIR__ + "/vendor"
@@ -289,13 +290,13 @@ var Build = Classify.create({
 		}, 1);
 	},
 	printHeader : function() {
-		process.stdout.write(util.format.apply(this, arguments) + "\n");
+		process.stdout.write("\x1B[2K" + util.format.apply(this, arguments) + "\n");
 	},
 	printLine : function() {
-		process.stdout.write("    " + util.format.apply(this, arguments) + "\n");
+		process.stdout.write("\x1B[2K" + "    " + util.format.apply(this, arguments) + "\n");
 	},
 	printTemp : function() {
-		process.stdout.write("    " + util.format.apply(this, arguments) + "\r");
+		process.stdout.write("\x1B[2K" + "    " + util.format.apply(this, arguments) + "\r");
 	},
 	print : function() {
 		process.stdout.write(util.format.apply(this, arguments));
