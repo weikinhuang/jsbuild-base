@@ -15,9 +15,10 @@ coverage/*
 
 
 # remove the following lines in production repo
-config.js
+/config.js
 dist/*
 docs/*
 perf/*
 src/*
 test/*
+vendor/*

@@ -1,9 +1,9 @@
 // execute system commands
 var childProcess = require("child_process");
 // classify library
-var Classify = require("../lib/classify.min.js");
+var Classify = require("../vendor/classify/classify.min.js");
 // require the special array library
-require("../lib/classify-array.min.js")(Classify);
+require("../vendor/classify/classify-array.min.js")(Classify);
 var cArray = Classify("/Array");
 
 var UnitTest = Classify.create({

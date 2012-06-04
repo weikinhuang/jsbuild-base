@@ -5,8 +5,8 @@ path = require("path"),
 // execute system commands
 exec = require("child_process"),
 // syntax highlighter
-hljs = require('../lib/highlight.js').hljs;
-hljs.LANGUAGES.javascript = require('../lib/highlight.javascript.js')(hljs);
+hljs = require('../vendor/highlight/highlight.js').hljs;
+hljs.LANGUAGES.javascript = require('../vendor/highlight/highlight.javascript.js')(hljs);
 
 function highlight(string) {
 	var code = hljs.highlight("javascript", string);

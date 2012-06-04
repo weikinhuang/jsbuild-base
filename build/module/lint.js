@@ -1,7 +1,7 @@
 module.exports = function(build, callback) {
 	build.printHeader(build.color("Checking code quality with JsHint...", "bold"));
 
-	var jshint = require(build.dir.build + "/lib/jshint").JSHINT;
+	var jshint = require(build.dir.build + "/vendor/jshint/jshint").JSHINT;
 
 	build.getSource(function(src) {
 		// run the linter

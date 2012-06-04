@@ -9,9 +9,9 @@ util = require("util"),
 // quick reference to root dir
 __DIR__ = path.dirname(__dirname),
 // classify library
-Classify = require("./lib/classify.min.js");
+Classify = require("./vendor/classify/classify.min.js");
 // require the special array library
-require("./lib/classify-array.min.js")(Classify);
+require("./vendor/classify/classify-array.min.js")(Classify);
 var cArray = Classify("/Array");
 var colors = {
 	black : 30,
@@ -150,9 +150,9 @@ var Build = Classify.create({
 			callback(this.sourceCache.min);
 			return;
 		}
-		var parser = require(this.dir.build + "/lib/parse-js");
-		var uglify = require(this.dir.build + "/lib/process");
-		var consolidator = require(this.dir.build + "/lib/consolidator");
+		var parser = require(this.dir.build + "/vendor/uglify/parse-js");
+		var uglify = require(this.dir.build + "/vendor/uglify/process");
+		var consolidator = require(this.dir.build + "/vendor/uglify/consolidator");
 		var options = this.options;
 		var self = this;
 
