@@ -61,7 +61,7 @@ var BenchmarkNodeJs = Classify.create(Benchmark, {
 		this.build.printLine("Running in " + this.build.color(this.name, "bold") + " environment...");
 		var self = this, options = this.build.options;
 
-		var child = childProcess.fork(this.build.dir.build + "/lib/benchmark-node-bridge.js", [ JSON.stringify({
+		var child = childProcess.fork(this.build.dir.build + "/bridge/benchmark-node-bridge.js", [ JSON.stringify({
 			src : options.src,
 			tests : options.perf,
 			external : options.external || []
@@ -97,7 +97,7 @@ var BenchmarkPhantomJs = Classify.create(Benchmark, {
 		this.build.printLine("Running in " + this.build.color(this.name, "bold") + " environment...");
 		var self = this;
 
-		var child = childProcess.spawn("phantomjs", [ this.build.dir.build + "/lib/phantom-bridge.js", this.build.dir.build + "/lib/benchmark-phantom-bridge.html" ], {
+		var child = childProcess.spawn("phantomjs", [ this.build.dir.build + "/bridge/phantom-bridge.js", this.build.dir.build + "/bridge/benchmark-phantom-bridge.html" ], {
 			env : process.env
 		}), results = [], index = 0;
 

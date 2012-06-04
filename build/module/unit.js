@@ -50,7 +50,7 @@ var UnitTestNodeJs = Classify.create(UnitTest, {
 		this.build.printLine("Running in " + this.build.color(this.name, "bold") + " environment...");
 		var self = this, options = this.build.options;
 
-		var child = childProcess.fork(this.build.dir.build + "/lib/qunit-node-bridge.js", [ JSON.stringify({
+		var child = childProcess.fork(this.build.dir.build + "/bridge/qunit-node-bridge.js", [ JSON.stringify({
 			src : options.src,
 			tests : options.unit,
 			external : options.external || []
@@ -83,7 +83,7 @@ var UnitTestPhantomJs = Classify.create(UnitTest, {
 		this.build.printLine("Running in " + this.build.color(this.name, "bold") + " environment...");
 		var self = this;
 
-		var child = childProcess.spawn("phantomjs", [ this.build.dir.build + "/lib/phantom-bridge.js", this.build.dir.build + "/lib/qunit-phantom-bridge.html" ], {
+		var child = childProcess.spawn("phantomjs", [ this.build.dir.build + "/bridge/phantom-bridge.js", this.build.dir.build + "/bridge/qunit-phantom-bridge.html" ], {
 			env : process.env
 		}), results = {}, index = 0, processEvent = function(msg) {
 			if (msg.event === "assertionDone") {

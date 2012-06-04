@@ -176,7 +176,7 @@ var CodeCoverageNodeJs = Classify.create(CodeCoverage, {
 		var self = this;
 		this.build.printLine("Running in " + this.build.color(this.name, "bold") + " environment...");
 
-		var child = childProcess.fork(this.build.dir.build + "/lib/coverage-node-bridge.js", [ JSON.stringify({
+		var child = childProcess.fork(this.build.dir.build + "/bridge/coverage-node-bridge.js", [ JSON.stringify({
 			src : this.build.options.src,
 			tests : this.build.options.unit,
 			external : this.build.options.external || []
@@ -200,7 +200,7 @@ var CodeCoveragePhantomJs = Classify.create(CodeCoverage, {
 		this.build.printLine("Running in " + this.build.color(this.name, "bold") + " environment...");
 		var self = this;
 
-		var child = childProcess.spawn("phantomjs", [ this.build.dir.build + "/lib/phantom-bridge.js", this.build.dir.build + "/lib/coverage-phantom-bridge.html" ], {
+		var child = childProcess.spawn("phantomjs", [ this.build.dir.build + "/bridge/phantom-bridge.js", this.build.dir.build + "/bridge/coverage-phantom-bridge.html" ], {
 			env : process.env
 		});
 
