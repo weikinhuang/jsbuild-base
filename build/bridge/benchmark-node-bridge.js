@@ -1,23 +1,11 @@
-// include the fs module
+//include the fs module
 var fs = require("fs"),
 // sandboxing module
 vm = require("vm"),
 // path utilities
 path = require("path"),
-// quick reference to root dir
-workdir = path.dirname(path.dirname(__dirname)),
-// path the the src dir
-srcdir = workdir + "/src",
-// path the the perf dir
-perfdir = workdir + "/perf",
-// path the the external dir
-vendordir = workdir + "/vendor",
 // read options from commandline
-options = JSON.parse(process.argv[2]),
-// path to the benchmark library
-perfPath = path.join(__dirname, "..", "perf/benchmark.js"),
-// misc variables
-currentmodule;
+options = JSON.parse(process.argv[2]);
 
 // globals needed by qunit sandbox
 var sandbox = {
@@ -42,7 +30,7 @@ var sandbox = {
 sandbox.window = sandbox;
 
 // load the benchmark library into the sandbox
-sandbox.Benchmark = require(perfPath);
+sandbox.Benchmark = require(path.join(__dirname, "..", "perf/benchmark.js"));
 
 // keep a reference to the "root" variable
 sandbox.root = sandbox.window;
@@ -89,13 +77,13 @@ sandbox.Benchmark.test = function(group, testGroup) {
 	});
 };
 
-//load source and tests into the sandbox
+// load source and tests into the sandbox
 function load(src, root) {
 	var files = [];
 	// build up the source file
 	src.forEach(function(file) {
 		try {
-			files.push(fs.readFileSync(root + file, "utf-8"));
+			files.push(fs.readFileSync(root + "/" + file, "utf8"));
 		} catch (e) {
 			console.log(e.message + " in " + file);
 			process.exit(1);
@@ -104,21 +92,21 @@ function load(src, root) {
 
 	// run the source in the sandbox
 	try {
-		vm.runInNewContext(files.join("\n"), sandbox, perfPath);
+		vm.runInNewContext(files.join("\n"), sandbox);
 	} catch (e) {
 		console.log(e.message);
 		process.exit(1);
 	}
 }
 
-//load dependencies
-load(options.external || [], vendordir + "/");
+// load dependencies
+load(options.source.external, options.dir.vendor);
 
 // load up the source files
-load(options.src, srcdir + "/");
+load(options.source.src, options.dir.src);
 
 // load up the test files
-load(options.tests, perfdir + "/");
+load(options.source.perf, options.dir.perf);
 
 // start the tests
 sandbox.___benchmarks.run({

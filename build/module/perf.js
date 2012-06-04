@@ -10,17 +10,48 @@ var Benchmark = Classify.create({
 	init : function(name, build) {
 		this.build = build;
 		this.name = name;
+		this.runtime = 0;
+		this.failed = 0;
+		this.passed = 0;
+		this.total = 0;
+		this.results = [];
 	},
 	setCallback : function(callback) {
 		this.callback = callback;
+		return this;
 	},
 	onComplete : function() {
 		this.build.printLine();
 		this.callback();
 	},
-	process : function(results, prevResults) {
+	start : function() {
+		this.build.printLine("Running in " + this.build.color(this.name, "bold") + " environment...");
+	},
+	logEvent : function(type, data) {
+		var self = this;
+		switch (type) {
+			case "testDone":
+				this.results.push(data);
+				break;
+			case "done":
+				this.build.printTemp("Benchmarks done.");
+
+				this.build.readCacheFile("perf." + this.name, function(data) {
+					self.process(data || {});
+					var currentPerfStats = {};
+					self.results.forEach(function(test) {
+						currentPerfStats[test.name] = test;
+					});
+					self.build.writeCacheFile("perf." + self.name, currentPerfStats, function() {
+						self.onComplete();
+					});
+				});
+				break;
+		}
+	},
+	process : function(prevResults) {
 		var self = this, error = 0;
-		results.forEach(function(test) {
+		self.results.forEach(function(test) {
 			var message = "  ", prevCompare;
 			if (test.error) {
 				message += "\x1B[38;5;160m" + self.build.rpad(test.name, 35) + "\x1B[0m";
@@ -53,53 +84,49 @@ var Benchmark = Classify.create({
 		self.build.printLine();
 	}
 });
+
 var BenchmarkNodeJs = Classify.create(Benchmark, {
 	init : function(build) {
 		this.parent("NodeJs", build);
 	},
 	start : function() {
-		this.build.printLine("Running in " + this.build.color(this.name, "bold") + " environment...");
-		var self = this, options = this.build.options;
+		this.parent();
 
+		var self = this, index = 0, child;
 		var child = childProcess.fork(this.build.dir.build + "/bridge/benchmark-node-bridge.js", [ JSON.stringify({
-			src : options.src,
-			tests : options.perf,
-			external : options.external || []
+			source : {
+				src : this.build.options.src,
+				perf : this.build.options.perf,
+				external : this.build.options.external
+			},
+			dir : this.build.dir
 		}) ], {
 			env : process.env
-		}), results = [], index = 0;
+		});
 
-		child.on("message", function(msg) {
-			if (msg.event === "testDone") {
-				msg.data.index = ++index;
-				results.push(msg.data);
-			} else if (msg.event === "done") {
-				child.kill();
-				self.build.readCacheFile("perf." + self.name, function(data) {
-					self.process(results, data || {});
-					var currentPerfStats = {};
-					results.forEach(function(test) {
-						currentPerfStats[test.name] = test;
-					});
-					self.build.writeCacheFile("perf." + self.name, currentPerfStats, function() {
-						self.onComplete();
-					});
-				});
+		child.on("message", function(message) {
+			if (message.event === "testDone") {
+				message.data.index = ++index;
 			}
+			if (message.event === "done") {
+				child.kill();
+			}
+			self.logEvent(message.event, message.data || {});
 		});
 	}
 });
+
 var BenchmarkPhantomJs = Classify.create(Benchmark, {
 	init : function(build) {
 		this.parent("PhantomJs", build);
 	},
 	start : function() {
-		this.build.printLine("Running in " + this.build.color(this.name, "bold") + " environment...");
-		var self = this;
+		this.parent();
+		var self = this, index = 0, child;
 
-		var child = childProcess.spawn("phantomjs", [ this.build.dir.build + "/bridge/phantom-bridge.js", this.build.dir.build + "/bridge/benchmark-phantom-bridge.html" ], {
+		child = childProcess.spawn("phantomjs", [ this.build.dir.build + "/bridge/phantom-bridge.js", this.build.dir.build + "/bridge/benchmark-phantom-bridge.html" ], {
 			env : process.env
-		}), results = [], index = 0;
+		});
 
 		child.stdout.setEncoding("utf8");
 		child.stdout.on("data", function(stdout) {
@@ -107,33 +134,26 @@ var BenchmarkPhantomJs = Classify.create(Benchmark, {
 				if (!data) {
 					return;
 				}
+				var message = {};
 				try {
-					var msg = JSON.parse("{\"event\"" + data);
-					if (msg.event === "testDone") {
-						msg.data.index = ++index;
-						results.push(msg.data);
-					} else if (msg.event === "done") {
-						self.build.readCacheFile("perf." + self.name, function(data) {
-							self.process(results, data || {});
-							var currentPerfStats = {};
-							results.forEach(function(test) {
-								currentPerfStats[test.name] = test;
-							});
-							self.build.writeCacheFile("perf." + self.name, currentPerfStats, function() {
-								self.onComplete();
-							});
-						});
-					}
+					message = JSON.parse("{\"event\"" + data);
 				} catch (e) {
 					throw e;
-					return;
 				}
+
+				if (message.event === "testDone") {
+					message.data.index = ++index;
+				}
+				if (message.event === "done") {
+					child.kill();
+				}
+				self.logEvent(message.event, message.data || {});
 			});
 		});
 		child.on("exit", function(code) {
 			// phantomjs doesn't exist
 			if (code === 127) {
-				self.build.printLine("\x1B[38;5;160m\u2716 \x1B[0mEnvironment " + self.name + " not found!");
+				self.build.printLine(self.build.color("\u2716 ", 160) + "Environment " + self.name + " not found!");
 				self.onComplete();
 			}
 		});
@@ -150,8 +170,7 @@ module.exports = function(build, callback) {
 		tests.push(new BenchmarkPhantomJs(build));
 	}
 	tests.serialEach(function(next, test) {
-		test.setCallback(next);
-		test.start();
+		test.setCallback(next).start();
 	}, function() {
 		var failed = 0, runtime = 0;
 		tests.forEach(function(test) {

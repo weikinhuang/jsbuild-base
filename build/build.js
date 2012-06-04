@@ -100,6 +100,7 @@ var Build = Classify.create({
 			build : __DIR__ + "/build",
 			dist : __DIR__ + "/dist",
 			src : __DIR__ + "/src",
+			perf : __DIR__ + "/perf",
 			test : __DIR__ + "/test",
 			coverage : __DIR__ + "/coverage",
 			doc : __DIR__ + "/docs",

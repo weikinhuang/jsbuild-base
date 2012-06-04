@@ -135,7 +135,7 @@ function load(src, root) {
 }
 
 // load dependencies
-load(options.source.external || [], options.dir.vendor);
+load(options.source.external, options.dir.vendor);
 
 // load up the source files
 load(options.source.src, options.dir.src);
