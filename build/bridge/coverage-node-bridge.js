@@ -101,10 +101,18 @@ sandbox.QUnit.moduleDone = function(data) {
 sandbox.QUnit.done((function() {
 	var timeout = null, later = function(data) {
 		timeout = null;
+
+		var coverage = {};
+		Object.keys(sandbox._$jscoverage).forEach(function(key) {
+			coverage[key] = {
+				lines : Array.prototype.slice.call(sandbox._$jscoverage[key], 0),
+				conditionals : sandbox._$jscoverage[key].conditionals || []
+			};
+		});
 		process.send({
 			event : "done",
 			data : data,
-			coverage : sandbox["_$jscoverage"]
+			coverage : coverage
 		});
 	};
 	return function(data) {
@@ -115,7 +123,7 @@ sandbox.QUnit.done((function() {
 	};
 })());
 
-//load source and tests into the sandbox
+// load source and tests into the sandbox
 function load(src, root) {
 	var files = [];
 	// build up the source file

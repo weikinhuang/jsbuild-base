@@ -93,7 +93,7 @@ var CodeCoverage = Classify.create({
 		// generage the coverage data
 		files.forEach(function(filename) {
 			var executed = 0, statements = 0, missing = [], coverage = {};
-			data[filename].forEach(function(n, ln) {
+			data[filename].lines.forEach(function(n, ln) {
 				if (n === undefined || n === null) {
 					return;
 				}
