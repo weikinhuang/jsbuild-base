@@ -118,7 +118,7 @@ function load(src, root) {
 	// build up the source file
 	src.forEach(function(file) {
 		try {
-			files.push(fs.readFileSync(root + "/" + file, "utf-8"));
+			files.push(fs.readFileSync(root + "/" + file, "utf8"));
 		} catch (e) {
 			console.log(e.message + " in " + file);
 			process.exit(1);

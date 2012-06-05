@@ -80,10 +80,10 @@
 				conditionals : window._$jscoverage[key].conditionals || []
 			};
 		});
+		data.coverage = coverage;
 		send({
 			event : "done",
-			data : data,
-			coverage : coverage
+			data : data
 		});
 		original_done.apply(this, arguments);
 	};

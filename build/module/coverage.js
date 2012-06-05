@@ -8,92 +8,125 @@ var Classify = require("../vendor/classify/classify.min.js");
 require("../vendor/classify/classify-array.min.js")(Classify);
 var cArray = Classify("/Array");
 
-function generateInstrumentedCode(build, callback) {
-	var error = [];
-	fs.readdir(build.dir.src, function(e, files) {
-		if (e) {
-			return;
-		}
-		var filter = [];
-		files.forEach(function(v) {
-			if (build.options.src.indexOf(v) === -1) {
-				filter.push(v);
-			}
-		});
-		var params = [];
-		filter.forEach(function(v) {
-			params.push("--no-instrument=" + v);
-		});
-		params.push("src");
-		params.push("coverage");
-
-		// delete contents of directory
-		try {
-			fs.readdirSync(build.dir.coverage).forEach(function(file) {
-				fs.unlinkSync(build.dir.coverage + "/" + file);
-			});
-			fs.unlinkSync(build.dir.coverage);
-		} catch (e) {
-		}
-
-		var child = childProcess.spawn("jscoverage", params, {
-			env : process.env
-		});
-		child.stderr.setEncoding("utf8");
-		child.stderr.on("data", function(stderr) {
-			error.push(stderr.toString());
-		});
-		child.on("exit", function(code) {
-			if (code === 127) {
-				return callback(null);
-			}
-			if (code !== 0) {
-				return callback(false, error);
-			}
-			// delete files that were not instrumented
-			fs.readdir(build.dir.coverage, function(e, files) {
+var CodeCoverage = Classify.create({
+	__static_ : {
+		instrument : function(build, callback) {
+			var error = [];
+			fs.readdir(build.dir.src, function(e, files) {
 				if (e) {
 					return;
 				}
+				var filter = [];
 				files.forEach(function(v) {
 					if (build.options.src.indexOf(v) === -1) {
-						fs.unlinkSync(build.dir.coverage + "/" + v);
+						filter.push(v);
 					}
 				});
-			});
-			return callback(true);
-		});
-	});
-}
+				var params = [];
+				filter.forEach(function(v) {
+					params.push("--no-instrument=" + v);
+				});
+				params.push("src");
+				params.push("coverage");
 
-var CodeCoverage = Classify.create({
-	init : function(name, build) {
+				// delete contents of directory
+				try {
+					fs.readdirSync(build.dir.coverage).forEach(function(file) {
+						fs.unlinkSync(build.dir.coverage + "/" + file);
+					});
+					fs.unlinkSync(build.dir.coverage);
+				} catch (e) {
+				}
+
+				var child = childProcess.spawn("jscoverage", params, {
+					env : process.env
+				});
+				child.stderr.setEncoding("utf8");
+				child.stderr.on("data", function(stderr) {
+					error.push(stderr.toString());
+				});
+				child.on("exit", function(code) {
+					if (code === 127) {
+						return callback(null);
+					}
+					if (code !== 0) {
+						return callback(false, error);
+					}
+					// delete files that were not instrumented
+					fs.readdir(build.dir.coverage, function(e, files) {
+						if (e) {
+							return;
+						}
+						files.forEach(function(v) {
+							if (build.options.src.indexOf(v) === -1) {
+								fs.unlinkSync(build.dir.coverage + "/" + v);
+							}
+						});
+					});
+					return callback(true);
+				});
+			});
+		}
+	},
+	init : function(build) {
 		this.build = build;
-		this.name = name;
-		this.log = [];
+		this.runtime = 0;
+		this.failed = 0;
+		this.passed = 0;
+		this.total = 0;
+		this.coverage = {};
+		this.missedLines = [];
 	},
 	setCallback : function(callback) {
 		this.callback = callback;
+		return this;
 	},
 	onComplete : function() {
 		this.build.printLine();
 		this.callback();
 	},
-	process : function(data) {
+	start : function() {
+		this.build.printLine("Running in " + this.build.color(this.name, "bold") + " environment...");
+	},
+	logEvent : function(type, data) {
+		switch (type) {
+			case "assertionDone":
+				break;
+			case "testStart":
+				this.build.printTemp("Running: " + this.build.color(data.module, "bold") + " " + data.name);
+				break;
+			case "testDone":
+				break;
+			case "moduleStart":
+				break;
+			case "moduleDone":
+				break;
+			case "done":
+				this.build.printTemp("Unit tests done.");
+				this.failed = data.failed;
+				this.passed = data.passed;
+				this.total = data.total;
+				this.runtime = data.runtime;
+				this.coverage = data.coverage;
+				this.process();
+				break;
+		}
+	},
+	process : function() {
 		var self = this, options = this.build.options, files = [], summary = [], totals = {
 			files : 0,
 			statements : 0,
 			executed : 0
 		}, longestName = 0, reports = [];
 		options.src.forEach(function(v) {
-			if (data.hasOwnProperty(v)) {
+			if (self.coverage.hasOwnProperty(v)) {
 				files.push(v);
 			}
 		});
 		// generage the coverage data
 		files.forEach(function(filename) {
-			var executed = 0, statements = 0, missing = [], coverage = {}, conditionals = data[filename].conditionals, currentConditionalEnd = 0;
-			data[filename].lines.forEach(function(n, ln) {
+			var executed = 0, statements = 0, missing = [], coverage = {}, conditionals = self.coverage[filename].conditionals, currentConditionalEnd = 0;
+			self.coverage[filename].lines.forEach(function(n, ln) {
 				// skip conditional lines that were not executed
 				if (ln === currentConditionalEnd) {
 					currentConditionalEnd = 0;
@@ -169,7 +202,7 @@ var CodeCoverage = Classify.create({
 					code.push(self.build.lpad(line - 1, 5) + " | " + report.source[line - 1]);
 				}
 				// the current line
-				code.push(self.build.lpad(line, 5) + " | \x1B[38;5;160m" + report.source[line] + "\x1B[0m");
+				code.push(self.build.lpad(line, 5) + " | " + self.build.color(report.source[line], 160));
 
 				// if the next line is also missing then just continue
 				if (report.missing[i + 1] === line + 1) {
@@ -190,47 +223,48 @@ var CodeCoverage = Classify.create({
 			});
 		});
 		reports.forEach(function(report) {
-			self.log.push("");
-			self.log.push("\x1B[39;1m" + self.build.rpad(report.name + " ", 80, "=") + "\x1B[0m");
+			self.missedLines.push("");
+			self.missedLines.push(self.build.color(self.build.rpad(report.name + " ", 80, "="), "bold"));
 			report.source.forEach(function(line) {
-				self.log.push(line);
+				self.missedLines.push(line);
 			});
 		});
+		this.onComplete();
 	}
 });
-var CodeCoverageNodeJs = Classify.create(CodeCoverage, {
-	init : function(build) {
-		this.parent("NodeJs", build);
-	},
-	start : function() {
-		var self = this;
-		this.build.printLine("Running in " + this.build.color(this.name, "bold") + " environment...");
 
-		var child = childProcess.fork(this.build.dir.build + "/bridge/coverage-node-bridge.js", [ JSON.stringify({
-			src : this.build.options.src,
-			tests : this.build.options.unit,
-			external : this.build.options.external || []
+var CodeCoverageNodeJs = Classify.create(CodeCoverage, {
+	name : "NodeJs",
+	start : function() {
+		this.parent();
+		var self = this, child;
+
+		child = childProcess.fork(this.build.dir.build + "/bridge/coverage-node-bridge.js", [ JSON.stringify({
+			source : {
+				src : this.build.options.src,
+				tests : this.build.options.unit,
+				external : this.build.options.external
+			},
+			dir : this.build.dir
 		}) ], {
 			env : process.env
 		});
-		child.on("message", function(msg) {
-			if (msg.event === "done") {
+		child.on("message", function(message) {
+			if (message.event === "done") {
 				child.kill();
-				self.process(msg.coverage);
-				self.onComplete();
 			}
+			self.logEvent(message.event, message.data || {});
 		});
 	}
 });
-var CodeCoveragePhantomJs = Classify.create(CodeCoverage, {
-	init : function(build) {
-		this.parent("PhantomJs", build);
-	},
-	start : function() {
-		this.build.printLine("Running in " + this.build.color(this.name, "bold") + " environment...");
-		var self = this;
 
-		var child = childProcess.spawn("phantomjs", [ this.build.dir.build + "/bridge/phantom-bridge.js", this.build.dir.build + "/bridge/coverage-phantom-bridge.html" ], {
+var CodeCoveragePhantomJs = Classify.create(CodeCoverage, {
+	name : "PhantomJs",
+	start : function() {
+		var self = this, child;
+		this.parent();
+
+		child = childProcess.spawn("phantomjs", [ this.build.dir.build + "/bridge/phantom-bridge.js", this.build.dir.build + "/bridge/coverage-phantom-bridge.html" ], {
 			env : process.env
 		});
 
@@ -240,22 +274,23 @@ var CodeCoveragePhantomJs = Classify.create(CodeCoverage, {
 				if (!data) {
 					return;
 				}
+				var message = {};
 				try {
-					var msg = JSON.parse("{\"event\"" + data);
-					if (msg.event === "done") {
-						self.process(msg.coverage);
-						self.onComplete();
-					}
+					message = JSON.parse("{\"event\"" + data);
 				} catch (e) {
 					throw e;
-					return;
 				}
+
+				if (message.event === "done") {
+					child.kill();
+				}
+				self.logEvent(message.event, message.data || {});
 			});
 		});
 		child.on("exit", function(code) {
 			// phantomjs doesn't exist
 			if (code === 127) {
-				self.build.printLine("\x1B[38;5;160m\u2716 \x1B[0mEnvironment " + self.name + " not found!");
+				self.build.printLine(self.build.color("\u2716 ", 160) + "Environment " + self.name + " not found!");
 				self.onComplete();
 			}
 		});
@@ -264,9 +299,9 @@ var CodeCoveragePhantomJs = Classify.create(CodeCoverage, {
 
 module.exports = function(build, callback) {
 	build.printHeader(build.color("Generating Code Coverage Report with JsCoverage...", "bold"));
-	generateInstrumentedCode(build, function(result, data) {
+	CodeCoverage.instrument(build, function(result, data) {
 		if (result === null) {
-			build.printLine("\x1B[38;5;160m\u2716 \x1B[0mJsCoverage not found!");
+			build.printLine(build.color("\u2716 ", 160) + "JsCoverage not found!");
 			build.printLine();
 			return callback();
 		}
@@ -293,12 +328,11 @@ module.exports = function(build, callback) {
 			tests.push(new CodeCoveragePhantomJs(build));
 		}
 		tests.serialEach(function(next, test) {
-			test.setCallback(next);
-			test.start();
+			test.setCallback(next).start();
 		}, function() {
 			var logs = [];
 			tests.forEach(function(test) {
-				logs.push.apply(logs, test.log);
+				logs.push.apply(logs, test.missedLines);
 			});
 			build.writeCacheFile("coverage", logs, function() {
 				callback();
