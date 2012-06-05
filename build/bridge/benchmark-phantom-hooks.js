@@ -1,7 +1,43 @@
 (function(window, tests) {
+	// pass data to the process
+	function send(data) {
+		alert(JSON.stringify(data));
+	}
+
 	tests.on("add", function(e) {
+		var i = 0, test = e.target, testData = {
+			id : test.id,
+			name : test.name
+		};
+
 		// bind events
-		e.target.on("complete", function(e) {
+		test.on("start", function(e) {
+			i = 0;
+			send({
+				event : "testStart",
+				data : testData
+			});
+		}).on("cycle", function(e) {
+			send({
+				event : "testCycle",
+				data : {
+					id : this.id,
+					name : this.name,
+					size : ++i,
+					count : this.count
+				}
+			});
+		}).on("error", function(e) {
+			send({
+				event : "testError",
+				data : testData
+			});
+		}).on("reset", function(e) {
+			send({
+				event : "testReset",
+				data : testData
+			});
+		}).on("complete", function(e) {
 			var data = {
 				id : this.id,
 				name : this.name,
@@ -15,18 +51,18 @@
 				data.error = this.error.message;
 			}
 
-			alert(JSON.stringify({
-				event : "testDone",
+			send({
+				event : "testComplete",
 				data : data
-			}));
+			});
 		});
 	});
 
 	tests.on("complete", function() {
-		alert(JSON.stringify({
+		send({
 			event : "done",
 			data : {}
-		}));
+		});
 	});
 
 	// wrapper function to add a test group

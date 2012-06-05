@@ -40,8 +40,39 @@ sandbox.___benchmarks = new sandbox.Benchmark.Suite();
 
 // bind the response handlers to the parent process
 sandbox.___benchmarks.on("add", function(e) {
+	var i = 0, test = e.target, testData = {
+		id : test.id,
+		name : test.name
+	};
+
 	// bind events
-	e.target.on("complete", function(e) {
+	test.on("start", function(e) {
+		i = 0;
+		process.send({
+			event : "testStart",
+			data : testData
+		});
+	}).on("cycle", function(e) {
+		process.send({
+			event : "testCycle",
+			data : {
+				id : this.id,
+				name : this.name,
+				size : ++i,
+				count : this.count
+			}
+		});
+	}).on("error", function(e) {
+		process.send({
+			event : "testError",
+			data : testData
+		});
+	}).on("reset", function(e) {
+		process.send({
+			event : "testReset",
+			data : testData
+		});
+	}).on("complete", function(e) {
 		var data = {
 			id : this.id,
 			name : this.name,
@@ -56,7 +87,7 @@ sandbox.___benchmarks.on("add", function(e) {
 		}
 
 		process.send({
-			event : "testDone",
+			event : "testComplete",
 			data : data
 		});
 	});

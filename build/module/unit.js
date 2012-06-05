@@ -38,7 +38,7 @@ var UnitTest = Classify.create({
 				}
 				break;
 			case "testStart":
-				this.build.printTemp("Running: " + this.build.color(data.module, "bold") + ": " + data.name);
+				this.build.printTemp("Running: " + this.build.color(data.module, "bold") + " " + data.name);
 				break;
 			case "testDone":
 				break;

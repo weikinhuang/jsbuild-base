@@ -10,7 +10,6 @@ var Benchmark = Classify.create({
 	init : function(name, build) {
 		this.build = build;
 		this.name = name;
-		this.runtime = 0;
 		this.failed = 0;
 		this.passed = 0;
 		this.total = 0;
@@ -28,60 +27,83 @@ var Benchmark = Classify.create({
 		this.build.printLine("Running in " + this.build.color(this.name, "bold") + " environment...");
 	},
 	logEvent : function(type, data) {
-		var self = this;
+		var self = this, modules;
 		switch (type) {
-			case "testDone":
+			case "testStart":
+				modules = data.name.split(".");
+				this.build.printTemp("Starting: " + this.build.color(modules.shift(), "bold") + " " + modules.join("."));
+				break;
+			case "testCycle":
+				modules = data.name.split(".");
+				this.build.printTemp(this.build.color(modules.shift(), "bold") + " " + modules.join(".") + " x " + this.build.formatNumber(data.count) + " (" + data.size + " sample" + (data.size == 1 ? "" : "s") + ")");
+				break;
+			case "testError":
+				break;
+			case "testComplete":
+				this[data.error ? "failed" : "passed"]++;
 				this.results.push(data);
 				break;
 			case "done":
 				this.build.printTemp("Benchmarks done.");
-
-				this.build.readCacheFile("perf." + this.name, function(data) {
-					self.process(data || {});
-					var currentPerfStats = {};
-					self.results.forEach(function(test) {
-						currentPerfStats[test.name] = test;
-					});
-					self.build.writeCacheFile("perf." + self.name, currentPerfStats, function() {
-						self.onComplete();
-					});
-				});
+				this.total = this.results.length;
+				this.process();
 				break;
 		}
 	},
 	process : function(prevResults) {
-		var self = this, error = 0;
-		self.results.forEach(function(test) {
-			var message = "  ", prevCompare;
-			if (test.error) {
-				message += "\x1B[38;5;160m" + self.build.rpad(test.name, 35) + "\x1B[0m";
-			} else {
-				message += self.build.rpad(test.name, 35);
-			}
-			message += self.build.lpad(self.build.formatNumber(test.hz.toFixed(test.hz < 100 ? 2 : 0)), 12) + " ops/s (\u00B1" + test.stats.rme.toFixed(2) + "%)";
-			message += " [" + self.build.formatNumber(test.count) + "x in " + test.times.cycle.toFixed(3) + "s]";
-
-			if (prevResults[test.name]) {
-				prevCompare = test.hz - prevResults[test.name].hz;
-				message += " [Vs. ";
-				message += (prevCompare >= 0 ? "+" : "-") + self.build.formatNumber(Math.abs(prevCompare).toFixed(Math.abs(prevCompare) < 100 ? 2 : 0)) + " ops/s";
-				message += " (" + (prevCompare >= 0 ? "+" : "-") + Math.abs(((test.hz - prevResults[test.name].hz) / test.hz) * 100).toFixed(3) + "%)";
-				message += "]";
-			}
-
-			self.build.printLine(message);
-			if (test.error) {
-				error++;
-				self.build.printLine("    \x1B[38;5;160m\u2716 \x1B[0m" + test.error);
-			}
+		var self = this;
+		this.build.readCacheFile("perf." + this.name, function(data) {
+			var currentPerfStats = {};
+			self.results.forEach(function(test) {
+				currentPerfStats[test.name] = test;
+			});
+			self.build.writeCacheFile("perf." + self.name, currentPerfStats, function() {
+				self.output(data || {});
+			});
+		});
+	},
+	output : function(prevResults) {
+		var self = this;
+		this.results.forEach(function(test) {
+			self.outputTest(test, prevResults[test.name]);
 		});
 
-		if (error > 0) {
-			self.build.printLine("\x1B[38;5;160m\u2716 \x1B[0m" + error + " / " + results.length + " Failed");
+		if (this.failed > 0) {
+			this.build.printLine(this.build.color("\u2716 ", 160) + this.failed + " / " + this.total + " Failed");
 		} else {
-			self.build.printLine("\x1B[38;5;34m\u2714 \x1B[0mAll benchmarks run successfully!");
+			this.build.printLine(this.build.color("\u2714 ", 34) + "All benchmarks run successfully!");
 		}
-		self.build.printLine();
+		this.build.printLine();
+		this.onComplete();
+	},
+	outputTest : function(test, prev) {
+		var message = [ "  " ], prevCompare;
+		if (test.error) {
+			message.push(this.build.color(this.build.rpad(test.name, 35), 160));
+		} else {
+			message.push(this.build.rpad(test.name, 35));
+		}
+		message.push(this.build.lpad(this.build.formatNumber(test.hz.toFixed(test.hz < 100 ? 2 : 0)), 12));
+		message.push(" ops/s (\u00B1" + test.stats.rme.toFixed(2) + "%)");
+		message.push(" [" + this.build.formatNumber(test.count) + "x in " + test.times.cycle.toFixed(3) + "s]");
+
+		if (prev) {
+			prevCompare = test.hz - prev.hz;
+			message.push(" [Vs. ");
+			message.push(prevCompare >= 0 ? "+" : "-");
+			message.push(this.build.formatNumber(Math.abs(prevCompare).toFixed(Math.abs(prevCompare) < 100 ? 2 : 0)));
+			message.push(" ops/s ");
+			message.push("(");
+			message.push(prevCompare >= 0 ? "+" : "-");
+			message.push(Math.abs(((test.hz - prev.hz) / test.hz) * 100).toFixed(3) + "%");
+			message.push(")");
+			message.push("]");
+		}
+
+		this.build.printLine(message.join(""));
+		if (test.error) {
+			this.build.printLine("    " + this.build.color("\u2716 ", 160) + test.error);
+		}
 	}
 });
 
@@ -105,7 +127,7 @@ var BenchmarkNodeJs = Classify.create(Benchmark, {
 		});
 
 		child.on("message", function(message) {
-			if (message.event === "testDone") {
+			if (message.event === "testComplete") {
 				message.data.index = ++index;
 			}
 			if (message.event === "done") {
@@ -141,7 +163,7 @@ var BenchmarkPhantomJs = Classify.create(Benchmark, {
 					throw e;
 				}
 
-				if (message.event === "testDone") {
+				if (message.event === "testComplete") {
 					message.data.index = ++index;
 				}
 				if (message.event === "done") {
@@ -175,11 +197,9 @@ module.exports = function(build, callback) {
 		var failed = 0, runtime = 0;
 		tests.forEach(function(test) {
 			failed += test.failed;
-			runtime += test.runtime;
 		});
 		callback({
-			error : failed > 0 ? new Error(failed + " Unit Test(s) failed.") : null,
-			time : runtime
+			error : failed > 0 ? new Error(failed + " Benchmarks(s) failed.") : null
 		});
 	});
 };
