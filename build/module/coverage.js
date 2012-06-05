@@ -92,9 +92,15 @@ var CodeCoverage = Classify.create({
 		});
 		// generage the coverage data
 		files.forEach(function(filename) {
-			var executed = 0, statements = 0, missing = [], coverage = {};
+			var executed = 0, statements = 0, missing = [], coverage = {}, conditionals = data[filename].conditionals, currentConditionalEnd = 0;
 			data[filename].lines.forEach(function(n, ln) {
-				if (n === undefined || n === null) {
+				// skip conditional lines that were not executed
+				if (ln === currentConditionalEnd) {
+					currentConditionalEnd = 0;
+				} else if (currentConditionalEnd === 0 && conditionals[ln]) {
+					currentConditionalEnd = conditionals[ln];
+				}
+				if (currentConditionalEnd !== 0 || n === undefined || n === null) {
 					return;
 				}
 				if (n === 0) {
@@ -113,7 +119,7 @@ var CodeCoverage = Classify.create({
 			totals.executed += executed;
 			totals.statements += statements;
 
-			var source = fs.readFileSync(self.build.dir.src + "/" + filename, "utf-8").replace(/\r/g, "").replace(/\t/g, "  ").split("\n");
+			var source = fs.readFileSync(self.build.dir.src + "/" + filename, "utf8").replace(/\r/g, "").replace(/\t/g, "  ").split("\n");
 			source.unshift(null);
 			coverage.source = source;
 			summary.push(coverage);
@@ -130,7 +136,31 @@ var CodeCoverage = Classify.create({
 		self.build.printLine(self.build.rpad("", 50, "-"));
 		summary.forEach(function(report) {
 			var percentage = (report.statements === 0 ? 0 : parseInt(100 * report.executed / report.statements));
-			self.build.printLine(self.build.rpad(report.name, longestName + 4) + " | " + self.build.lpad(report.executed, 6) + " | " + self.build.lpad(report.statements, 6) + " | " + self.build.lpad(percentage + " %", 5) + " | " + report.missing.join(","));
+			var row = [], missing = [], missingLnStart = -1;
+			row.push(self.build.rpad(report.name, longestName + 4));
+			row.push(self.build.lpad(report.executed, 6));
+			row.push(self.build.lpad(report.statements, 6));
+			row.push(self.build.lpad(percentage + " %", 5));
+
+			report.missing.forEach(function(ln, idx) {
+				if (missingLnStart === -1 && ln + 1 === report.missing[idx + 1]) {
+					missingLnStart = ln;
+					return;
+				}
+				if (ln + 1 === report.missing[idx + 1]) {
+					return;
+				}
+				if (missingLnStart !== -1) {
+					missing.push(missingLnStart + "-" + ln);
+					missingLnStart = -1;
+					return;
+				}
+				missingLnStart = -1;
+				missing.push(ln);
+			});
+			row.push(missing.join(","));
+
+			self.build.printLine(row.join(" | "));
 
 			var is_continue = false, code = [];
 			report.missing.forEach(function(line, i) {
