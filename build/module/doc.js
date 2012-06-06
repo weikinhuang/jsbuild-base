@@ -13,10 +13,6 @@ function highlight(string) {
 	return (code && code.value) || string;
 }
 
-function trim(str) {
-	return str.replace(/^\s*/, "").replace(/\s*$/, "");
-}
-
 function roundFileSize(b, d) {
 	var i = 0;
 	while ((b / 1000) > 1) {
@@ -44,7 +40,7 @@ function parseDocs(source) {
 	var docs = [];
 	// get all docblocks and the line right after it
 	source.replace(docRegexp, function(match, index) {
-		var docblock = trim(match);
+		var docblock = match.trim();
 		var definition = source.substr(match.length + index).split(/\n/g)[1];
 		docs.push({
 			doc : docblock,
@@ -57,21 +53,21 @@ function parseDocs(source) {
 		// pull out the docblock comment
 		var commentMatch = commentRegexp.exec(block.doc);
 		if (commentMatch && commentMatch[0]) {
-			doc.comment = trim(commentMatch[0].replace(/^\/\*\*/, "").replace(/^\s*\*\s*/gm, "").replace(/^\s*\*\s*@\s*$/gm, "").split(/\n/g).join(" ").replace(/\s+/g, " "));
+			doc.comment = commentMatch[0].replace(/^\/\*\*/, "").replace(/^\s*\*\s*/gm, "").replace(/^\s*\*\s*@\s*$/gm, "").split(/\n/g).join(" ").replace(/\s+/g, " ").trim();
 		}
 		// parse example if any
 		var exampleMatch = exampleRegexp.exec(block.doc);
 		if (exampleMatch && exampleMatch[1]) {
-			doc.example = trim(trim(exampleMatch[1]).replace(/^\s*\* ?/gm, "").replace(/\t/g, "    "));
+			doc.example = exampleMatch[1].trim().replace(/^\s*\* ?/gm, "").replace(/\t/g, "    ").trim();
 		}
 
 		var memberOfMatch = memberOfRegexp.exec(block.doc);
 		if (memberOfMatch && memberOfMatch[0]) {
-			doc.memberOf = trim(memberOfMatch[0].replace(/@memberOf\s+/, "")).replace(/^{|}$/g, "");
+			doc.memberOf = memberOfMatch[0].replace(/@memberOf\s+/, "").trim().replace(/^\{|\}$/g, "");
 		}
 		var typeMatch = typeRegexp.exec(block.doc);
 		if (typeMatch && typeMatch[0]) {
-			doc.type = trim(typeMatch[0].replace(/@type\s+/, "")).replace(/^{|}$/g, "");
+			doc.type = typeMatch[0].replace(/@type\s+/, "").trim().replace(/^\{|\}$/g, "");
 		}
 
 		doc.isStatic = staticRegexp.test(block.doc);
@@ -84,18 +80,20 @@ function parseDocs(source) {
 			var returnsMatch = returnsRegexp.exec(block.doc);
 			if (returnsMatch && returnsMatch[0]) {
 				var returnsMatchParts = {};
-				var returnsMatchClean = trim(returnsMatch[1].replace(/^\s*\*\s*/gm, "").split(/\n/g).join(" ").replace(/\s+/g, " "));
-				returnsMatchParts.type = (/^{?([^\s]+)}/.exec(returnsMatchClean) || [])[1] || null;
-				returnsMatchParts.comment = (/^{?[^\s]+}(.+)$/.exec(returnsMatchClean) || [])[1] || null;
+				var returnsMatchClean = returnsMatch[1].replace(/^\s*\*\s*/gm, "").split(/\n/g).join(" ").replace(/\s+/g, " ").trim();
+				returnsMatchParts.type = (/^\{?([^\s]+)\}/.exec(returnsMatchClean) || [])[1] || null;
+				returnsMatchParts.comment = (/^\{?[^\s]+\}(.+)$/.exec(returnsMatchClean) || [])[1] || null;
 				doc.returns = returnsMatchParts;
 			}
-			var params = [], paramMatcher, paramBlock = block.doc;
+			var params = [], paramMatcher, paramBlock = block.doc, matchCleaner = function(match, part) {
+				return match.substr(-1);
+			};
 			// strip out all the params from block
 			while ((paramMatcher = paramsRegexp.exec(paramBlock)) !== null) {
 				var paramsMatchParts = {};
-				var paramsMatchClean = trim(paramMatcher[1].replace(/^\s*\*\s*/gm, "").split(/\n/g).join(" ").replace(/\s+/g, " "));
-				paramsMatchParts.type = (/^{?([^\s]+)}/.exec(paramsMatchClean) || [])[1] || null;
-				paramsMatchParts.name = (/^{?[^\s]+}\s+([^\s]+)\s+.+$/.exec(paramsMatchClean) || [])[1] || null;
+				var paramsMatchClean = paramMatcher[1].replace(/^\s*\*\s*/gm, "").split(/\n/g).join(" ").replace(/\s+/g, " ").trim();
+				paramsMatchParts.type = (/^\{?([^\s]+)\}/.exec(paramsMatchClean) || [])[1] || null;
+				paramsMatchParts.name = (/^\{?[^\s]+\}\s+([^\s]+)\s+.+$/.exec(paramsMatchClean) || [])[1] || null;
 				paramsMatchParts.isOptional = false;
 				if (/^\[.+\]$/.test(paramsMatchParts.name)) {
 					var nameParts = paramsMatchParts.name.replace(/^\[|\]$/g, "").split("=");
@@ -103,36 +101,34 @@ function parseDocs(source) {
 					paramsMatchParts.name = nameParts.shift();
 					paramsMatchParts.value = nameParts.join("=");
 				}
-				paramsMatchParts.comment = (/^{?[^\s]+}\s+([^\s]+)\s+(.+)$/.exec(paramsMatchClean) || [])[2] || null;
+				paramsMatchParts.comment = (/^\{?[^\s]+\}\s+([^\s]+)\s+(.+)$/.exec(paramsMatchClean) || [])[2] || null;
 				params.push(paramsMatchParts);
-				paramBlock = paramBlock.replace(paramsRegexp, function(match, part) {
-					return match.substr(-1);
-				});
+				paramBlock = paramBlock.replace(paramsRegexp, matchCleaner);
 			}
 			doc.params = params;
 
 			var superMatch = superRegexp.exec(block.doc);
 			if (superMatch && superMatch[0]) {
-				doc.superClass = trim(superMatch[0].replace(/@super\s+/, "")).replace(/^{|}$/g, "");
+				doc.superClass = superMatch[0].replace(/@super\s+/, "").trim().replace(/^\{|\}$/g, "");
 			}
 			var augmentsMatch = augmentsRegexp.exec(block.doc);
 			if (augmentsMatch && augmentsMatch[0]) {
-				doc.augments = trim(augmentsMatch[0].replace(/@augments\s+/, "")).replace(/^{|}$/g, "");
+				doc.augments = augmentsMatch[0].replace(/@augments\s+/, "").trim().replace(/^\{|\}$/g, "");
 			}
-			if (/=/.test(block.def)) {
-				doc.name = trim((block.def.split("=")[0] || "").replace(/^\s*var\s+/, ""));
+			if (block.def.indexOf("=") > -1) {
+				doc.name = (block.def.split("=")[0] || "").replace(/^\s*var\s+/, "").trim();
 			} else {
-				doc.name = trim(block.def.replace(/^\s*function\s+/, "").replace(/([^\(]+).+$/, "$1"));
+				doc.name = block.def.replace(/^\s*function\s+/, "").replace(/([^\(]+).+$/, "$1").trim();
 			}
 		} else {
 			doc.varType = "var";
-			doc.name = trim((block.def.split("=")[0] || "").replace(/^\s*var\s+/, ""));
+			doc.name = (block.def.split("=")[0] || "").replace(/^\s*var\s+/, "").trim();
 		}
 
 		// override the name property if defined
 		var nameMatch = nameRegexp.exec(block.doc);
 		if (nameMatch && nameMatch[0]) {
-			doc.name = trim(nameMatch[0].replace(/@name\s+/, "")).replace(/^{|}$/g, "");
+			doc.name = nameMatch[0].replace(/@name\s+/, "").trim().replace(/^\{|\}$/g, "");
 		}
 
 		docblocks.push(doc);
@@ -233,7 +229,7 @@ function createMarkdown(build, docGroups, callback) {
 		markdown.push("");
 		markdown.push("");
 	});
-	callback(trim(markdown.join("\n")));
+	callback(markdown.join("\n").trim());
 }
 
 function outputMarkdownBlock(block, messages) {
@@ -324,7 +320,7 @@ function parseChangelog(build) {
 	var changegroups = changelog_doc.split("####");
 	var changelog = {};
 	changegroups.forEach(function(group) {
-		group = trim(group);
+		group = group.trim();
 		if (!group) {
 			return;
 		}
@@ -332,7 +328,7 @@ function parseChangelog(build) {
 		var version = changes.shift();
 		var changedata = [];
 		changes.forEach(function(change) {
-			var c = trim(change);
+			var c = change.trim();
 			if (c) {
 				changedata.push(c);
 			}
@@ -380,7 +376,7 @@ function createHtmlDoc(build, docGroups) {
 			});
 		}
 	});
-	return trim(markdown.join("\n"));
+	return markdown.join("\n").trim();
 }
 
 function outputHtmlDocBlock(block, messages) {
