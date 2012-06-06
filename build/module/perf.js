@@ -27,7 +27,7 @@ var Benchmark = Classify.create({
 		this.build.printLine("Running in " + this.build.color(this.name, "bold") + " environment...");
 	},
 	logEvent : function(type, data) {
-		var self = this, modules;
+		var modules;
 		switch (type) {
 			case "testStart":
 				modules = data.name.split(".");
@@ -115,7 +115,7 @@ var BenchmarkNodeJs = Classify.create(Benchmark, {
 		this.parent();
 
 		var self = this, index = 0, child;
-		var child = childProcess.fork(this.build.dir.build + "/bridge/benchmark-node-bridge.js", [ JSON.stringify({
+		child = childProcess.fork(this.build.dir.build + "/bridge/benchmark-node-bridge.js", [ JSON.stringify({
 			source : {
 				src : this.build.options.src,
 				perf : this.build.options.perf,
@@ -194,7 +194,7 @@ module.exports = function(build, callback) {
 	tests.serialEach(function(next, test) {
 		test.setCallback(next).start();
 	}, function() {
-		var failed = 0, runtime = 0;
+		var failed = 0;
 		tests.forEach(function(test) {
 			failed += test.failed;
 		});

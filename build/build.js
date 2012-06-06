@@ -26,16 +26,16 @@ var colors = {
 };
 
 function gzip(data, callback) {
-	var gzip = childProcess.spawn("gzip", [ "-c", "-q", "-" ]), output = "";
+	var child = childProcess.spawn("gzip", [ "-c", "-q", "-" ]), output = "";
 	// Promise events
-	gzip.stdout.setEncoding("utf8");
-	gzip.stdout.on("data", function(stdout) {
+	child.stdout.setEncoding("utf8");
+	child.stdout.on("data", function(stdout) {
 		output += stdout.toString();
 	});
-	gzip.on("exit", function(code) {
+	child.on("exit", function(code) {
 		callback(output, output.length);
 	});
-	gzip.stdin.end((data || "").toString(), "utf8");
+	child.stdin.end((data || "").toString(), "utf8");
 }
 
 var Build = Classify.create({

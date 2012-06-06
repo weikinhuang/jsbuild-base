@@ -74,6 +74,9 @@ var CodeCoverage = Classify.create({
 		this.failed = 0;
 		this.passed = 0;
 		this.total = 0;
+		this.files = 0;
+		this.executed = 0;
+		this.statements = 0;
 		this.coverage = {};
 		this.missedLines = [];
 	},
@@ -113,12 +116,16 @@ var CodeCoverage = Classify.create({
 		}
 	},
 	process : function() {
-		var self = this, options = this.build.options, files = [], summary = [], totals = {
-			files : 0,
-			statements : 0,
-			executed : 0
-		}, longestName = 0, reports = [];
-		options.src.forEach(function(v) {
+		var self = this;
+		this.processCoverageData(function(summary) {
+			self.outputSummaryTable(summary);
+			self.generateReport(summary);
+			self.onComplete();
+		});
+	},
+	processCoverageData : function(callback) {
+		var self = this, files = [], summary = [];
+		this.build.options.src.forEach(function(v) {
 			if (self.coverage.hasOwnProperty(v)) {
 				files.push(v);
 			}
@@ -148,33 +155,59 @@ var CodeCoverage = Classify.create({
 			coverage.missing = missing;
 			coverage.name = filename;
 
-			totals.files++;
-			totals.executed += executed;
-			totals.statements += statements;
+			self.files++;
+			self.executed += executed;
+			self.statements += statements;
 
 			var source = fs.readFileSync(self.build.dir.src + "/" + filename, "utf8").replace(/\r/g, "").replace(/\t/g, "  ").split("\n");
 			source.unshift(null);
 			coverage.source = source;
 			summary.push(coverage);
-
-			if (longestName < filename.length) {
+		});
+		callback(summary);
+	},
+	outputSummaryTable : function(summary) {
+		var self = this, longestName = 0;
+		this.build.options.src.forEach(function(filename) {
+			if (self.coverage.hasOwnProperty(filename) && longestName < filename.length) {
 				longestName = filename.length;
 			}
 		});
 
-		self.build.printLine(self.build.rpad("File", longestName + 4) + " | " + self.build.lpad("CLOC", 6) + " | " + self.build.lpad("LOC", 6) + " | " + self.build.lpad("%", 5) + " | " + "Missing");
-		self.build.printLine(self.build.rpad("", 50, "-"));
-		var total_percentage = (totals.statements === 0 ? 0 : parseInt(100 * totals.executed / totals.statements));
-		self.build.printLine(self.build.lpad(totals.files, longestName + 4) + " | " + self.build.lpad(totals.executed, 6) + " | " + self.build.lpad(totals.statements, 6) + " | " + self.build.lpad(total_percentage + " %", 5) + " | ");
-		self.build.printLine(self.build.rpad("", 50, "-"));
+		// print header
+		var rowHeader = [];
+		rowHeader.push(this.build.rpad("File", longestName + 4));
+		rowHeader.push(this.build.lpad("CLOC", 6));
+		rowHeader.push(this.build.lpad("LOC", 6));
+		rowHeader.push(this.build.lpad("%", 5));
+		rowHeader.push("Missing");
+		this.build.printLine(rowHeader.join(" | "));
+
+		// print divider
+		this.build.printLine(this.build.rpad("", 50, "-"));
+
+		// print summary
+		var total_percentage = (this.statements === 0 ? 0 : parseInt(100 * this.executed / this.statements, 10));
+		var rowSummary = [];
+		rowSummary.push(this.build.lpad(this.files, longestName + 4));
+		rowSummary.push(this.build.lpad(this.executed, 6));
+		rowSummary.push(this.build.lpad(this.statements, 6));
+		rowSummary.push(this.build.lpad(total_percentage + " %", 5));
+		rowSummary.push("");
+		this.build.printLine(rowSummary.join(" | "));
+
+		// print divider
+		this.build.printLine(this.build.rpad("", 50, "-"));
+
 		summary.forEach(function(report) {
-			var percentage = (report.statements === 0 ? 0 : parseInt(100 * report.executed / report.statements));
+			var percentage = (report.statements === 0 ? 0 : parseInt(100 * report.executed / report.statements, 10));
 			var row = [], missing = [], missingLnStart = -1;
 			row.push(self.build.rpad(report.name, longestName + 4));
 			row.push(self.build.lpad(report.executed, 6));
 			row.push(self.build.lpad(report.statements, 6));
 			row.push(self.build.lpad(percentage + " %", 5));
 
+			// group up non covered lines to 1,2,3,5,7,8,9 => 1-3,5,7-9
 			report.missing.forEach(function(ln, idx) {
 				if (missingLnStart === -1 && ln + 1 === report.missing[idx + 1]) {
 					missingLnStart = ln;
@@ -194,15 +227,23 @@ var CodeCoverage = Classify.create({
 			row.push(missing.join(","));
 
 			self.build.printLine(row.join(" | "));
+		});
+	},
+	generateReport : function(summary) {
+		var self = this;
+		summary.forEach(function(report) {
+			var is_continue = false;
 
-			var is_continue = false, code = [];
+			self.missedLines.push("");
+			self.missedLines.push(self.build.color(self.build.rpad(report.name + " ", 80, "="), "bold"));
+
 			report.missing.forEach(function(line, i) {
 				if (line > 1 && !is_continue) {
 					// context line
-					code.push(self.build.lpad(line - 1, 5) + " | " + report.source[line - 1]);
+					self.missedLines.push(self.build.lpad(line - 1, 5) + " | " + report.source[line - 1]);
 				}
 				// the current line
-				code.push(self.build.lpad(line, 5) + " | " + self.build.color(report.source[line], 160));
+				self.missedLines.push(self.build.lpad(line, 5) + " | " + self.build.color(report.source[line], 160));
 
 				// if the next line is also missing then just continue
 				if (report.missing[i + 1] === line + 1) {
@@ -212,24 +253,12 @@ var CodeCoverage = Classify.create({
 					is_continue = false;
 					if (report.source[line + 1]) {
 						// context line
-						code.push(self.build.lpad(line + 1, 5) + " | " + report.source[line + 1]);
-						code.push("");
+						self.missedLines.push(self.build.lpad(line + 1, 5) + " | " + report.source[line + 1]);
+						self.missedLines.push("");
 					}
 				}
 			});
-			reports.push({
-				name : report.name,
-				source : code
-			});
 		});
-		reports.forEach(function(report) {
-			self.missedLines.push("");
-			self.missedLines.push(self.build.color(self.build.rpad(report.name + " ", 80, "="), "bold"));
-			report.source.forEach(function(line) {
-				self.missedLines.push(line);
-			});
-		});
-		this.onComplete();
 	}
 });
 
