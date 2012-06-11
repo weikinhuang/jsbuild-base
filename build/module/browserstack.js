@@ -106,7 +106,7 @@ var Browser = Classify.create({
 			version : this.version,
 			browser : this.browser,
 			os : this.os,
-			url : "http://ip-address:8080/build/bridge/qunit-browserstack-bridge.html",
+			url : "http://108.171.161.215:8080/build/bridge/qunit-browserstack-bridge.html",
 			timeout : 60
 		}, function(error, worker) {
 			if (error) {
@@ -209,8 +209,8 @@ var BrowserList = Classify.create({
 		this.browsers = {};
 		this.validbrowsers = null;
 		this.client = BrowserStack.createClient({
-			username : "",
-			password : ""
+			username : this.build.options.browserstack.username,
+			password : this.build.options.browserstack.password
 		});
 	},
 	setCallback : function(callback) {
@@ -263,6 +263,7 @@ var BrowserList = Classify.create({
 		}, function() {
 			this.server.stop();
 			// output results && kill all the running workers before stopping
+			self.build.printLine();
 			list.threadEach(function(next, name) {
 				var browser = this.getBrowser(name);
 				browser.process();
@@ -330,7 +331,7 @@ var Server = Classify.create({
 				});
 			});
 		}).listen(8080, function() {
-			self.build.printLine("Unit test server running at => http://ip-address:8080");
+			self.build.printLine("Unit test server running at => http://108.171.161.215:8080");
 			setTimeout(callback, 1);
 		});
 
@@ -339,7 +340,6 @@ var Server = Classify.create({
 			transports : [ "websocket", "flashsocket", "htmlfile", "jsonp-polling" ],
 			"flash policy port" : 8080
 		}).sockets.on("connection", function(socket) {
-			self.build.printTemp("socket connected");
 			socket.on("browserConnect", function(data) {
 				self.list.getBrowser(Browser.uaToBrowser(data.ua)).setSocket(socket);
 			});
@@ -367,7 +367,7 @@ module.exports = function(build, callback) {
 		list.setServer(server);
 		server.setList(list);
 		list.listBrowsers(function(browsers) {
-			(build.options.browserstack || []).forEach(function(browser) {
+			(build.options.browserstack.browsers || []).forEach(function(browser) {
 				list.addBrowser(browser);
 			});
 			list.start();
