@@ -139,7 +139,7 @@ var Browser = Classify.create({
 		var runner = function() {
 			self.browserstack.getWorker(self.id, function(error, worker) {
 				if (worker.status !== "running") {
-					self.build.printTemp("Waiting for: " + self.build.color(self.name, "bold") + " " + pattern[i++ % 4]);
+					self.build.printTemp(pattern[i++ % 4] + " Waiting for: " + self.build.color(self.name, "bold"));
 					setTimeout(runner, 1000);
 				}
 			});

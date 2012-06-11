@@ -73,6 +73,7 @@ var Build = Classify.create({
 		this.options = {};
 		this.taskOptions = {};
 		this.replaceTokens = [];
+		this.currentStep = null;
 
 		// call the config function to populate the internal options
 		config(this);
@@ -154,6 +155,22 @@ var Build = Classify.create({
 
 	getOption : function(name) {
 		var opt = null, temp;
+
+		// try to pull from the task options first
+		if (this.currentStep !== null && this.taskOptions[this.currentStep]) {
+			// do a nested loop to check the options object
+			temp = this.taskOptions[this.currentStep];
+			name.split(".").some(function(part) {
+				if (!temp.hasOwnProperty(part)) {
+					return false;
+				}
+				temp = temp[part];
+			});
+			if (temp != null) {
+				return temp;
+			}
+		}
+
 		// do a nested loop to check the options object
 		temp = this.options;
 		name.split(".").some(function(part) {
@@ -347,7 +364,7 @@ var Build = Classify.create({
 		this.time = (+new Date());
 		this.currentStep = step.toLowerCase();
 		try {
-			require(this.dir.build + "/module/" + this.currentStep)(this, function(data) {
+			require(this.dir.build + "/module/" + this.currentStep + ".js")(this, function(data) {
 				data = data || {};
 				data.name = step;
 				if (!data.time) {
@@ -359,6 +376,7 @@ var Build = Classify.create({
 					return;
 				}
 				self.printLine("Finished in " + self.color((data.time / 1000).toFixed(3), 171) + " seconds.\n");
+				self.currentStep = null;
 				next();
 			});
 		} catch (e) {
