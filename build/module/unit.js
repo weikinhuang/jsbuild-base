@@ -92,9 +92,9 @@ var UnitTestNodeJs = Classify.create(UnitTest, {
 
 		child = childProcess.fork(this.build.dir.build + "/bridge/qunit-node-bridge.js", [ JSON.stringify({
 			source : {
-				src : this.build.options.src,
-				tests : this.build.options.unit,
-				external : this.build.options.external
+				src : this.build.src,
+				tests : this.build.unit,
+				external : this.build.external
 			},
 			dir : this.build.dir
 		}) ], {

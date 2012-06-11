@@ -45,56 +45,19 @@ var Build = Classify.create({
 			pkg : "package.json",
 			version : "0.0.0",
 			wrap : {},
-			src : [],
-			unit : [],
-			perf : [],
 			docs : [],
-			external : [],
 			env : {},
 			lint : {},
 			min : {},
 			doc : {},
 			build : "clean lint unit size concat min"
 		},
-		parseParams : function(params) {
-			var opts = {
-				build : [],
-				subtract : []
-			};
-			params.forEach(function(arg) {
-				// push which build options we want
-				if (/^\w+$/.test(arg)) {
-					opts.build.push(arg);
-					return;
-				}
-				// push which build options we want to remove from the default build
-				if (/^-\w+$/.test(arg)) {
-					opts.subtract.push(arg);
-					return;
-				}
-				// which options we want to parse for src, unit, perf, external
-				if (/^-?\w+=/.test(arg)) {
-					var parts = arg.split("="), name = parts.shift();
-					opts[name] = parts.join("=").split(",");
-					return;
-				}
-			});
-			return opts;
-		},
 		build : function(options) {
-			return Build(options, Array.prototype.slice.call(process.argv, 2)).build();
+			return Build(options || require(__DIR__ + "/config.js")).build();
 		}
 	},
-	init : function(options, params) {
-		// merge the default options into the options array
-		Object.keys(Build.defaultOptions).forEach(function(key) {
-			if (options[key] == null) {
-				options[key] = Build.defaultOptions[key];
-			}
-		});
-		this.options = options;
-		this.params = Build.parseParams(params);
-		this.modifyOptionsFromParams();
+	init : function(options) {
+		this.sourceCache = {};
 		this.dir = {
 			base : __DIR__,
 			build : __DIR__ + "/build",
@@ -106,19 +69,50 @@ var Build = Classify.create({
 			doc : __DIR__ + "/docs",
 			vendor : __DIR__ + "/vendor"
 		};
-		this.sourceCache = {};
-	},
-	modifyOptionsFromParams : function() {
-		var build = cArray().getNewObject(this.options.build ? this.options.build.split(" ") : []);
 
-		if (this.params.build.length > 0) {
-			build = cArray().getNewObject(this.params.build);
-		} else if (this.params.subtract.length > 0) {
-			build = build.diff(this.params.subtract);
-		}
+		// default values for file sources
+		this.src = [];
+		this.unit = [];
+		this.perf = [];
+		this.external = [];
+		this.env = {};
 
-		this.steps = build;
+		this.options = options(this);
+
+		// set the name and version
+		this.name = this.options.name;
+		this.version = this.options.version;
+
+		console.log(this.options);
+		this.writeParsedOptions();
 	},
+
+	addSourceFile : function() {
+		this.src.push.apply(this.src, arguments);
+		return this;
+	},
+	addUnitTestFile : function() {
+		this.unit.push.apply(this.unit, arguments);
+		return this;
+	},
+	addBenchmarkFile : function() {
+		this.perf.push.apply(this.perf, arguments);
+		return this;
+	},
+	addExternalFile : function() {
+		this.external.push.apply(this.external, arguments);
+		return this;
+	},
+	writeParsedOptions : function() {
+		var data = {};
+		data.name = this.name;
+		data.src = this.src;
+		data.unit = this.unit;
+		data.perf = this.perf;
+		data.external = this.external;
+		this.writeCacheFile("options", data, true, "module.exports = %j;");
+	},
+
 	getSource : function(callback) {
 		if (this.sourceCache.full != null) {
 			callback(this.sourceCache.full);
@@ -126,13 +120,13 @@ var Build = Classify.create({
 		}
 		var self = this, intro = "", outro = "", src = "", data, options = this.options;
 		(options.wrap && options.wrap.intro || []).forEach(function(file) {
-			intro += fs.readFileSync(self.dir.src + "/" + file, "utf-8");
+			intro += fs.readFileSync(self.dir.src + "/" + file, "utf8");
 		});
 		(options.wrap && options.wrap.outro || []).forEach(function(file) {
-			outro += fs.readFileSync(self.dir.src + "/" + file, "utf-8");
+			outro += fs.readFileSync(self.dir.src + "/" + file, "utf8");
 		});
-		(options.src || []).forEach(function(file) {
-			src += fs.readFileSync(self.dir.src + "/" + file, "utf-8");
+		this.src.forEach(function(file) {
+			src += fs.readFileSync(self.dir.src + "/" + file, "utf8");
 		});
 
 		data = intro + src + outro;
@@ -217,7 +211,7 @@ var Build = Classify.create({
 		}
 		var self = this, copy = "", options = this.options;
 		(options.wrap.copy || []).forEach(function(file) {
-			copy += fs.readFileSync(self.dir.src + "/" + file, "utf-8");
+			copy += fs.readFileSync(self.dir.src + "/" + file, "utf8");
 		});
 		copy = copy.replace(/@VERSION\b/g, options.version);
 		copy = copy.replace(/@DATE\b/g, (new Date()).toUTCString());
@@ -231,24 +225,46 @@ var Build = Classify.create({
 		callback(copy);
 	},
 	readCacheFile : function(name, callback) {
-		fs.readFile(this.dir.build + "/.cache." + name + ".json", "utf8", function(error, data) {
-			if (error) {
-				callback(null);
-				return;
-			}
+		var filename = this.dir.build + "/.cache." + name + ".json";
+		if (callback === true) {
 			try {
-				callback(JSON.parse(data));
+				return JSON.parse(fs.readFileSync(filename, "utf8"));
 			} catch (e) {
-				callback(null);
+				return null;
 			}
-		});
+		} else {
+			fs.readFile(filename, "utf8", function(error, data) {
+				if (error) {
+					callback(null);
+					return;
+				}
+				try {
+					callback(JSON.parse(data));
+				} catch (e) {
+					callback(null);
+				}
+			});
+		}
 	},
-	writeCacheFile : function(name, data, callback) {
-		fs.writeFile(this.dir.build + "/.cache." + name + ".json", JSON.stringify(data, true), "utf8", function() {
-			callback();
-		});
+	writeCacheFile : function(name, data, callback, format) {
+		var filename = this.dir.build + "/.cache." + name + ".json";
+		if (callback === true) {
+			fs.writeFileSync(filename, util.format(format || "%j", data), "utf8");
+		} else {
+			fs.writeFile(filename, util.format(format || "%j", data), "utf8", function() {
+				callback();
+			});
+		}
 	},
 	build : function() {
+		var steps = [];
+		Array.prototype.slice.call(process.argv, 2).forEach(function(arg) {
+			// push which build options we want
+			if (/^\w+$/.test(arg)) {
+				steps.push(arg);
+			}
+		});
+		this.steps = cArray().getNewObject(steps.length === 0 ? this.options.build.split(" ") : steps);
 		this.startTime = new Date();
 		this.steps.serialEach(this.processStep, this.onComplete, this);
 	},

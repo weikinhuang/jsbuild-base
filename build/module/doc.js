@@ -178,7 +178,7 @@ function groupByMembers(docblocks) {
 
 function createMarkdown(build, docGroups, callback) {
 	var markdown = [];
-	markdown.push("# " + build.options.name + " `v" + build.options.version + "`");
+	markdown.push("# " + build.name + " `v" + build.options.version + "`");
 	markdown.push("==================================================");
 	markdown.push("");
 	Object.keys(docGroups).forEach(function(key) {
@@ -474,7 +474,7 @@ function outputHtmlDocBlock(block, messages) {
 function createHtmlIndex(build, docGroups, callback) {
 	build.getMinifiedSource(function(min) {
 		build.getGzippedSource(function(zip) {
-			var htmlInputName = typeof build.options.doc.html === "string" ? build.options.doc.html : build.options.name;
+			var htmlInputName = typeof build.options.doc.html === "string" ? build.options.doc.html : build.name;
 			var template = fs.readFileSync(build.dir.doc + "/" + htmlInputName + ".html", "utf8");
 			template = template.replace(/@VERSION\b/g, build.options.version);
 			template = template.replace(/@REPO_URI\b/g, build.options.repo);
@@ -504,7 +504,7 @@ module.exports = function(build, callback) {
 
 	if (build.options.doc.markdown) {
 		num_processed++;
-		var markdownOutputName = typeof build.options.doc.markdown === "string" ? build.options.doc.markdown : build.options.name;
+		var markdownOutputName = typeof build.options.doc.markdown === "string" ? build.options.doc.markdown : build.name;
 		createMarkdown(build, groups, function(doc) {
 			fs.writeFileSync(build.dir.doc + "/" + markdownOutputName + ".md", doc, "utf8");
 			setTimeout(function() {
@@ -517,7 +517,7 @@ module.exports = function(build, callback) {
 
 	if (build.options.doc.html) {
 		num_processed++;
-		var htmlOutputName = typeof build.options.doc.html === "string" ? build.options.doc.html : build.options.name;
+		var htmlOutputName = typeof build.options.doc.html === "string" ? build.options.doc.html : build.name;
 		createHtmlIndex(build, groups, function(doc) {
 			fs.writeFileSync(build.dir.doc + "/" + htmlOutputName + ".out.html", doc, "utf8");
 			setTimeout(function() {

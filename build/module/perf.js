@@ -117,9 +117,9 @@ var BenchmarkNodeJs = Classify.create(Benchmark, {
 		var self = this, index = 0, child;
 		child = childProcess.fork(this.build.dir.build + "/bridge/benchmark-node-bridge.js", [ JSON.stringify({
 			source : {
-				src : this.build.options.src,
-				perf : this.build.options.perf,
-				external : this.build.options.external
+				src : this.build.src,
+				perf : this.build.perf,
+				external : this.build.external
 			},
 			dir : this.build.dir
 		}) ], {
