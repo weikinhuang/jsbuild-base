@@ -10,15 +10,11 @@ module.exports = function(build, callback) {
 	}
 
 	var pkgStr = JSON.stringify(build.options.pkg.desc, true, 4);
-	pkgStr = pkgStr.replace(/@VERSION\b/g, build.options.version);
+	pkgStr = pkgStr.replace(/@VERSION\b/g, build.version);
 	pkgStr = pkgStr.replace(/@DATE\b/g, (new Date()).toUTCString());
-
-	if (build.options.sourceReplace) {
-		var replacer = build.options.sourceReplace;
-		Object.keys(replacer).forEach(function(key) {
-			pkgStr = pkgStr.replace(new RegExp("@" + key + "\\b", "g"), replacer[key]);
-		});
-	}
+	build.replaceTokens.forEach(function(token) {
+		pkgStr = pkgStr.replace(new RegExp("@" + token.name + "\\b", "g"), token.value);
+	});
 
 	fs.writeFile(build.dir.base + "/" + build.options.pkg.file, pkgStr, "utf8", function() {
 		callback();

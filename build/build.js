@@ -40,23 +40,11 @@ function gzip(data, callback) {
 
 var Build = Classify.create({
 	__static_ : {
-		defaultOptions : {
-			name : "build",
-			pkg : "package.json",
-			version : "0.0.0",
-			wrap : {},
-			docs : [],
-			env : {},
-			lint : {},
-			min : {},
-			doc : {},
-			build : "clean lint unit size concat min"
-		},
-		build : function(options) {
-			return Build(options || require(__DIR__ + "/config.js")).build();
+		build : function(config) {
+			return Build(config || require(__DIR__ + "/config.js")).build();
 		}
 	},
-	init : function(options) {
+	init : function(config) {
 		this.sourceCache = {};
 		this.dir = {
 			base : __DIR__,
@@ -71,22 +59,34 @@ var Build = Classify.create({
 		};
 
 		// default values for file sources
+		this.wrap = {};
 		this.src = [];
 		this.unit = [];
 		this.perf = [];
 		this.external = [];
 		this.env = {};
+		this.name = "";
+		this.version = "0.0.0";
+		this.repoUrl = "";
 
-		this.options = options(this);
+		this.optStore = null;
+		this.options = {};
+		this.taskOptions = {};
+		this.replaceTokens = [];
 
-		// set the name and version
-		this.name = this.options.name;
-		this.version = this.options.version;
+		// call the config function to populate the internal options
+		config(this);
 
-		console.log(this.options);
 		this.writeParsedOptions();
 	},
 
+	setNameVersion : function(name, version) {
+		this.name = name;
+		this.version = version || "0.0.0";
+	},
+	setRepoName : function(repo) {
+		this.repoUrl = repo;
+	},
 	addSourceFile : function() {
 		this.src.push.apply(this.src, arguments);
 		return this;
@@ -103,6 +103,45 @@ var Build = Classify.create({
 		this.external.push.apply(this.external, arguments);
 		return this;
 	},
+	addCopyright : function() {
+		if (!this.wrap.copy) {
+			this.wrap.copy = [];
+		}
+		this.wrap.copy.push.apply(this.wrap.copy, arguments);
+		return this;
+	},
+	addIntro : function() {
+		if (!this.wrap.intro) {
+			this.wrap.intro = [];
+		}
+		this.wrap.intro.push.apply(this.wrap.intro, arguments);
+		return this;
+	},
+	addOutro : function() {
+		if (!this.wrap.outro) {
+			this.wrap.outro = [];
+		}
+		this.wrap.outro.push.apply(this.wrap.outro, arguments);
+		return this;
+	},
+	addReplaceToken : function(name, value) {
+		this.replaceTokens.push({
+			name : name,
+			value : value
+		});
+		return this;
+	},
+	enableEnvironment : function() {
+		var self = this;
+		Array.prototype.slice.call(arguments, 0).forEach(function(env) {
+			self.env[env] = true;
+		});
+		return this;
+	},
+	addTaskOptions : function(name, options) {
+		this.options[name] = options;
+		this.taskOptions[name] = options || {};
+	},
 	writeParsedOptions : function() {
 		var data = {};
 		data.name = this.name;
@@ -113,16 +152,58 @@ var Build = Classify.create({
 		this.writeCacheFile("options", data, true, "module.exports = %j;");
 	},
 
+	getOption : function(name) {
+		var opt = null, temp;
+		// do a nested loop to check the options object
+		temp = this.options;
+		name.split(".").some(function(part) {
+			if (!temp.hasOwnProperty(part)) {
+				return false;
+			}
+			temp = temp[part];
+		});
+		if (temp != null) {
+			return temp;
+		}
+		// check params array
+		Array.prototype.slice.call(process.argv, 2).some(function(param) {
+			if (param.indexOf("--" + name + "=") === 0) {
+				opt = param.replace(new RegExp("^--" + name + "="), "").replace(/^["']+|["']+$/g, "");
+				return false;
+			}
+		});
+		if (opt != null) {
+			return opt;
+		}
+		// then check the local config file
+		if (this.optStore === null) {
+			this.optStore = this.readCacheFile("config", true) || {};
+		}
+
+		// do a nested loop to check the options object
+		temp = this.optStore;
+		name.split(".").some(function(part) {
+			if (!temp.hasOwnProperty(part)) {
+				return false;
+			}
+			temp = temp[part];
+		});
+		if (temp != null) {
+			return temp;
+		}
+		return null;
+	},
+
 	getSource : function(callback) {
 		if (this.sourceCache.full != null) {
 			callback(this.sourceCache.full);
 			return;
 		}
-		var self = this, intro = "", outro = "", src = "", data, options = this.options;
-		(options.wrap && options.wrap.intro || []).forEach(function(file) {
+		var self = this, intro = "", outro = "", src = "", data;
+		(this.wrap && this.wrap.intro || []).forEach(function(file) {
 			intro += fs.readFileSync(self.dir.src + "/" + file, "utf8");
 		});
-		(options.wrap && options.wrap.outro || []).forEach(function(file) {
+		(this.wrap && this.wrap.outro || []).forEach(function(file) {
 			outro += fs.readFileSync(self.dir.src + "/" + file, "utf8");
 		});
 		this.src.forEach(function(file) {
@@ -130,14 +211,12 @@ var Build = Classify.create({
 		});
 
 		data = intro + src + outro;
-		data = data.replace(/@VERSION\b/g, options.version);
+		data = data.replace(/@VERSION\b/g, this.version);
 		data.replace(/@DATE\b/g, (new Date()).toUTCString());
-		if (this.options.sourceReplace) {
-			var replacer = this.options.sourceReplace;
-			Object.keys(replacer).forEach(function(key) {
-				data = data.replace(new RegExp("@" + key + "\\b", "g"), replacer[key]);
-			});
-		}
+
+		this.replaceTokens.forEach(function(token) {
+			data = data.replace(new RegExp("@" + token.name + "\\b", "g"), token.value);
+		});
 		this.sourceCache.full = data;
 		callback(data);
 	},
@@ -149,18 +228,16 @@ var Build = Classify.create({
 		var parser = require(this.dir.build + "/vendor/uglify/parse-js");
 		var uglify = require(this.dir.build + "/vendor/uglify/process");
 		var consolidator = require(this.dir.build + "/vendor/uglify/consolidator");
-		var options = this.options;
+		var options = this.taskOptions.min || {};
 		var self = this;
 
 		this.getSource(function(src) {
-			options.min = options.min || {};
-
-			if (options.min.preparse) {
-				src = options.min.preparse(src);
+			if (options.preparse) {
+				src = options.preparse(src);
 			}
 
 			// parse code and get the initial AST
-			var ast = parser.parse(src, options.min.strict_semicolons || false);
+			var ast = parser.parse(src, options.strict_semicolons || false);
 
 			if (options.consolidate) {
 				ast = consolidator.ast_consolidate(ast);
@@ -170,23 +247,23 @@ var Build = Classify.create({
 			}
 
 			// get a new AST with mangled names
-			if (options.min.mangle) {
-				ast = uglify.ast_mangle(ast, options.min.mangle);
+			if (options.mangle) {
+				ast = uglify.ast_mangle(ast, options.mangle);
 			}
 
 			// get an AST with compression optimizations
-			if (options.min.squeeze) {
-				options.min.squeeze.keep_comps = !(options.min.unsafe || false);
-				ast = uglify.ast_squeeze(ast, options.min.squeeze);
+			if (options.squeeze) {
+				options.squeeze.keep_comps = !(options.unsafe || false);
+				ast = uglify.ast_squeeze(ast, options.squeeze);
 
 				// unsafe optimizations
-				if (options.min.unsafe) {
+				if (options.unsafe) {
 					ast = uglify.ast_squeeze_more(ast);
 				}
 			}
 
 			// compressed code here
-			var data = uglify.gen_code(ast, options.min.generate);
+			var data = uglify.gen_code(ast, options.generate);
 			self.sourceCache.min = data;
 			callback(data);
 		});
@@ -209,18 +286,15 @@ var Build = Classify.create({
 			callback(this.sourceCache.copyright);
 			return;
 		}
-		var self = this, copy = "", options = this.options;
-		(options.wrap.copy || []).forEach(function(file) {
+		var self = this, copy = "";
+		(this.wrap.copy || []).forEach(function(file) {
 			copy += fs.readFileSync(self.dir.src + "/" + file, "utf8");
 		});
-		copy = copy.replace(/@VERSION\b/g, options.version);
+		copy = copy.replace(/@VERSION\b/g, this.version);
 		copy = copy.replace(/@DATE\b/g, (new Date()).toUTCString());
-		if (this.options.sourceReplace) {
-			var replacer = this.options.sourceReplace;
-			Object.keys(replacer).forEach(function(key) {
-				copy = copy.replace(new RegExp("@" + key + "\\b", "g"), replacer[key]);
-			});
-		}
+		this.replaceTokens.forEach(function(token) {
+			copy = copy.replace(new RegExp("@" + token.name + "\\b", "g"), token.value);
+		});
 		this.sourceCache.copyright = copy;
 		callback(copy);
 	},
@@ -271,8 +345,9 @@ var Build = Classify.create({
 	processStep : function(next, step, index) {
 		var self = this;
 		this.time = (+new Date());
+		this.currentStep = step.toLowerCase();
 		try {
-			require(this.dir.build + "/module/" + step.toLowerCase())(this, function(data) {
+			require(this.dir.build + "/module/" + this.currentStep)(this, function(data) {
 				data = data || {};
 				data.name = step;
 				if (!data.time) {

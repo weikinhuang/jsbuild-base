@@ -178,7 +178,7 @@ function groupByMembers(docblocks) {
 
 function createMarkdown(build, docGroups, callback) {
 	var markdown = [];
-	markdown.push("# " + build.name + " `v" + build.options.version + "`");
+	markdown.push("# " + build.name + " `v" + build.version + "`");
 	markdown.push("==================================================");
 	markdown.push("");
 	Object.keys(docGroups).forEach(function(key) {
@@ -476,8 +476,8 @@ function createHtmlIndex(build, docGroups, callback) {
 		build.getGzippedSource(function(zip) {
 			var htmlInputName = typeof build.options.doc.html === "string" ? build.options.doc.html : build.name;
 			var template = fs.readFileSync(build.dir.doc + "/" + htmlInputName + ".html", "utf8");
-			template = template.replace(/@VERSION\b/g, build.options.version);
-			template = template.replace(/@REPO_URI\b/g, build.options.repo);
+			template = template.replace(/@VERSION\b/g, build.version);
+			template = template.replace(/@REPO_URI\b/g, build.repoUrl);
 			template = template.replace(/@FULLSIZE\b/g, roundFileSize(min.length));
 			template = template.replace(/@MINSIZE\b/g, roundFileSize(zip.length));
 			template = template.replace(/@CHANGELOG\b/g, outputHtmlChangelogBlock(build, parseChangelog(build)));
@@ -490,13 +490,13 @@ function createHtmlIndex(build, docGroups, callback) {
 module.exports = function(build, callback) {
 	build.printHeader(build.color("Generating documentation files...", "bold"));
 
-	if (build.options.docs.length === 0) {
+	if (!build.options.doc.files || build.options.doc.files.length === 0) {
 		callback();
 		return;
 	}
 
 	var docsfile = [], num_processed = 0;
-	build.options.docs.forEach(function(file) {
+	(build.options.doc.files || []).forEach(function(file) {
 		docsfile.push(fs.readFileSync(build.dir.doc + "/" + file, "utf8").replace(/\r/g, ""));
 	});
 	var docblocks = parseDocs(docsfile.join("\n"));

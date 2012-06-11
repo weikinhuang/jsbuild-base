@@ -185,10 +185,10 @@ var BenchmarkPhantomJs = Classify.create(Benchmark, {
 module.exports = function(build, callback) {
 	build.printHeader(build.color("Running benchmarks with Benchmark.js...", "bold"));
 	var tests = cArray();
-	if (build.options.env.node === true) {
+	if (build.env.node === true) {
 		tests.push(new BenchmarkNodeJs(build));
 	}
-	if (build.options.env.web === true) {
+	if (build.env.web === true) {
 		tests.push(new BenchmarkPhantomJs(build));
 	}
 	tests.serialEach(function(next, test) {

@@ -160,10 +160,10 @@ var UnitTestPhantomJs = Classify.create(UnitTest, {
 module.exports = function(build, callback) {
 	build.printHeader(build.color("Running unit tests against QUnit...", "bold"));
 	var tests = cArray();
-	if (build.options.env.node === true) {
+	if (build.env.node === true) {
 		tests.push(new UnitTestNodeJs(build));
 	}
-	if (build.options.env.web === true) {
+	if (build.env.web === true) {
 		tests.push(new UnitTestPhantomJs(build));
 	}
 	tests.serialEach(function(next, test) {

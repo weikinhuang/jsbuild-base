@@ -350,10 +350,10 @@ module.exports = function(build, callback) {
 		}
 
 		var tests = cArray();
-		if (build.options.env.node === true) {
+		if (build.env.node === true) {
 			tests.push(new CodeCoverageNodeJs(build));
 		}
-		if (build.options.env.web === true) {
+		if (build.env.web === true) {
 			tests.push(new CodeCoveragePhantomJs(build));
 		}
 		tests.serialEach(function(next, test) {
