@@ -106,7 +106,7 @@ var Browser = Classify.create({
 			version : this.version,
 			browser : this.browser,
 			os : this.os,
-			url : "http://108.171.161.215:8080/build/bridge/qunit-browserstack-bridge.html",
+			url : "http://" + (self.build.getOption("browserstack.ip") || "127.0.0.1") + ":" + parseInt(self.build.getOption("browserstack.port") || 80, 10) + "/build/bridge/qunit-browserstack-bridge.html",
 			timeout : 60
 		}, function(error, worker) {
 			if (error) {
@@ -209,8 +209,8 @@ var BrowserList = Classify.create({
 		this.browsers = {};
 		this.validbrowsers = null;
 		this.client = BrowserStack.createClient({
-			username : this.build.options.browserstack.username,
-			password : this.build.options.browserstack.password
+			username : this.build.getOption("browserstack.username"),
+			password : this.build.getOption("browserstack.password")
 		});
 	},
 	setCallback : function(callback) {
@@ -330,15 +330,15 @@ var Server = Classify.create({
 					response.end();
 				});
 			});
-		}).listen(8080, function() {
-			self.build.printLine("Unit test server running at => http://108.171.161.215:8080");
+		}).listen(parseInt(this.build.getOption("browserstack.port") || 80, 10), function() {
+			self.build.printLine("Unit test server running at => http://" + (self.build.getOption("browserstack.ip") || "127.0.0.1") + ":" + parseInt(self.build.getOption("browserstack.port") || 80, 10));
 			setTimeout(callback, 1);
 		});
 
 		io.listen(this.server, {
 			log : false,
 			transports : [ "websocket", "flashsocket", "htmlfile", "jsonp-polling" ],
-			"flash policy port" : 8080
+			"flash policy port" : parseInt(this.build.getOption("browserstack.port") || 80, 10)
 		}).sockets.on("connection", function(socket) {
 			socket.on("browserConnect", function(data) {
 				self.list.getBrowser(Browser.uaToBrowser(data.ua)).setSocket(socket);
@@ -367,7 +367,7 @@ module.exports = function(build, callback) {
 		list.setServer(server);
 		server.setList(list);
 		list.listBrowsers(function(browsers) {
-			(build.options.browserstack.browsers || []).forEach(function(browser) {
+			(build.getOption("browserstack.browsers") || []).forEach(function(browser) {
 				list.addBrowser(browser);
 			});
 			list.start();
