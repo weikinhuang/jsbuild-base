@@ -85,9 +85,11 @@ var Build = Classify.create({
 	setNameVersion : function(name, version) {
 		this.name = name;
 		this.version = version || "0.0.0";
+		return this;
 	},
 	setRepoName : function(repo) {
 		this.repoUrl = repo;
+		return this;
 	},
 	addSourceFile : function() {
 		this.src.push.apply(this.src, Array.isArray(arguments[0]) ? arguments[0] : arguments);

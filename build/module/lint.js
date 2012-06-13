@@ -3,7 +3,7 @@ var jshint = require("../vendor/jshint/jshint").JSHINT;
 
 var lint = function(build, src) {
 	// run the linter
-	jshint(src, build.getOption("lint.lint"));
+	jshint(src, build.getOption("lint.options"));
 	return {
 		data : jshint.data(),
 		errors : jshint.errors || []
