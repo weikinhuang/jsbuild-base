@@ -343,7 +343,10 @@ var Server = Classify.create({
 				});
 			});
 		}).listen(parseInt(this.build.getOption("browserstack.port") || 80, 10), function() {
-			self.build.printLine("Unit test server running at => http://" + (self.build.getOption("browserstack.ip") || "127.0.0.1") + ":" + parseInt(self.build.getOption("browserstack.port") || 80, 10));
+			var host = self.build.getOption("browserstack.ip") || "127.0.0.1";
+			var port = parseInt(self.build.getOption("browserstack.port") || 80, 10);
+			self.build.printLine("Unit test server running at => http://" + host + ":" + port);
+			self.build.printLine("Possibly create a reverse tunnel with: \"ssh -f -R " + port + ":localhost:" + port + " " + host + " -N\"");
 			setTimeout(callback, 1);
 		});
 
