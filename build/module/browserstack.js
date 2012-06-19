@@ -1,5 +1,6 @@
 // include the necessary module
 var fs = require("fs");
+var childProcess = childProcess = require("child_process");
 var http = require("http");
 var url = require("url");
 var path = require("path");
@@ -177,7 +178,7 @@ var Browser = Classify.create({
 				this.passed = data.passed;
 				this.total = data.total;
 				this.runtime = data.runtime;
-				if(this.failed > 0) {
+				if (this.failed > 0) {
 					this.build.printLine(this.build.color("\u2716 ", 160) + "Browser " + this.build.color(this.name, "bold") + " completed tests");
 				} else {
 					this.build.printLine(this.build.color("\u2714 ", 34) + "Browser " + this.build.color(this.name, "bold") + " completed tests");
@@ -298,6 +299,7 @@ var Server = Classify.create({
 	init : function(build) {
 		this.build = build;
 		this.server = null;
+		this.tunnel = null;
 	},
 	setList : function(list) {
 		this.list = list;
@@ -346,8 +348,20 @@ var Server = Classify.create({
 			var host = self.build.getOption("browserstack.ip") || "127.0.0.1";
 			var port = parseInt(self.build.getOption("browserstack.port") || 80, 10);
 			self.build.printLine("Unit test server running at => http://" + host + ":" + port);
-			self.build.printLine("Possibly create a reverse tunnel with: \"ssh -f -R " + port + ":localhost:" + port + " " + host + " -N\"");
-			setTimeout(callback, 1);
+
+			if (self.build.getOption("browserstack.tunnel") === true || self.build.getOption("browserstack.tunnel") === "true") {
+				self.tunnel = childProcess.spawn("ssh", [ "-R", port + ":localhost:" + port, host, "-N" ], {
+					env : process.env
+				});
+				self.tunnel.stderr.setEncoding("utf8");
+				self.tunnel.stderr.on("data", function(stderr) {
+					self.build.printLine(stderr);
+				});
+				setTimeout(callback, 1000);
+			} else {
+				self.build.printLine("Possibly create a reverse tunnel with: \"ssh -f -R " + port + ":localhost:" + port + " " + host + " -N\"");
+				setTimeout(callback, 1);
+			}
 		});
 
 		io.listen(this.server, {
@@ -365,6 +379,9 @@ var Server = Classify.create({
 	stop : function() {
 		if (this.server) {
 			this.server.close();
+		}
+		if (this.tunnel) {
+			this.tunnel.kill();
 		}
 		return this;
 	}
