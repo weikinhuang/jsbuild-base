@@ -505,6 +505,8 @@ function outputHtmlDocBlock(block, messages, examples) {
 function createHtmlIndex(build, docGroups, callback) {
 	build.getMinifiedSource(function(min) {
 		build.getGzippedSource(function(zip) {
+			var examples = getExamples(build);
+
 			var htmlInputName = typeof build.getOption("doc.html") === "string" ? build.getOption("doc.html") : build.name;
 			var template = fs.readFileSync(build.dir.doc + "/" + htmlInputName + ".html", "utf8");
 			template = template.replace(/@VERSION\b/g, build.version);
@@ -513,6 +515,12 @@ function createHtmlIndex(build, docGroups, callback) {
 			template = template.replace(/@MINSIZE\b/g, roundFileSize(zip.length));
 			template = template.replace(/@CHANGELOG\b/g, outputHtmlChangelogBlock(build, parseChangelog(build)));
 			template = template.replace(/@DOCUMENTATION\b/g, createHtmlDoc(build, docGroups));
+			template = template.replace(/@EXAMPLE\[(.+?)]/g, function(m, name) {
+				var block = "<pre class=\"code-block javascript\">";
+				block += highlight(examples[name].toString().replace(/^\t/gm, "").replace(/\t/g, "    ").replace(/^\s*func.+[\n\r]+/, "").replace(/[\n\r]+\s*\}\s*$/, ""));
+				block += "</pre>";
+				return block;
+			});
 			callback(template);
 		});
 	});
