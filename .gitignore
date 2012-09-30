@@ -2,23 +2,8 @@
 *~
 *.diff
 *.patch
-/*.html
-.svn
-*/.svn
 .DS_Store
 .externalToolBuilders
 .buildpath
 .project
-test/dev.html
-build/.*.json
-coverage/*
-
-
-# remove the following lines in production repo
-/config.js
-dist/*
-docs/*
-perf/*
-src/*
-test/*
-vendor/*
+.*.json
