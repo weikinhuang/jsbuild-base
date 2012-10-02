@@ -26,7 +26,7 @@ sandbox.root = sandbox;
 var context = vm.createContext(sandbox);
 
 // load the benchmark library into the sandbox
-context.Benchmark = require(path.join(__dirname, "..", "perf/benchmark.js"));
+context.Benchmark = require(path.join(__dirname, "..", "vendor/benchmarkjs/benchmark.js"));
 
 // create a new global test suite
 context.___benchmarks = new context.Benchmark.Suite();

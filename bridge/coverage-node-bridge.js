@@ -28,7 +28,7 @@ sandbox.root = sandbox;
 var context = vm.createContext(sandbox);
 
 try {
-	vm.runInContext(fs.readFileSync(path.join(__dirname, "..", "qunit/qunit.js"), "utf8"), context);
+	vm.runInContext(fs.readFileSync(path.join(__dirname, "..", "vendor/qunit/qunit.js"), "utf8"), context);
 } catch (err) {
 	process.exit(1);
 }
