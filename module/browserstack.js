@@ -3,9 +3,9 @@ var fs = require("fs");
 var childProcess = childProcess = require("child_process");
 var http = require("http");
 var url = require("url");
+var qs = require("querystring");
 var path = require("path");
 var BrowserStack = require("../vendor/browserstack/browserstack.js");
-var io = require("socket.io");
 // classify library
 var Classify = require("../vendor/classify/classify.min.js");
 // require the special array library
@@ -65,6 +65,7 @@ var Browser = Classify.create({
 		this.name = (this.browser || this.device) + " " + this.version + " " + this.os;
 		this.build = build;
 		this.id = 0;
+		this.index = 0;
 
 		this.runtime = 0;
 		this.failed = 0;
@@ -74,30 +75,6 @@ var Browser = Classify.create({
 	},
 	setBrowserStackClient : function(client) {
 		this.browserstack = client;
-	},
-	setSocket : function(socket) {
-		var self = this, index = 0;
-		this.socket = socket;
-		this.build.printLine(this.build.color("= ", 34) + "Browser " + this.build.color(this.name, "bold") + " connected");
-		socket.on("assertionDone", function(data) {
-			data.index = ++index;
-			self.logEvent("assertionDone", data);
-		});
-		socket.on("testStart", function(data) {
-			self.logEvent("testStart", data);
-		});
-		socket.on("testDone", function(data) {
-			self.logEvent("testDone", data);
-		});
-		socket.on("moduleStart", function(data) {
-			self.logEvent("moduleStart", data);
-		});
-		socket.on("moduleDone", function(data) {
-			self.logEvent("moduleDone", data);
-		});
-		socket.on("done", function(data) {
-			self.logEvent("done", data);
-		});
 	},
 	setCallback : function(callback) {
 		this.callback = callback;
@@ -156,7 +133,11 @@ var Browser = Classify.create({
 	},
 	logEvent : function(type, data) {
 		switch (type) {
+			case "browserConnect":
+				this.build.printLine(this.build.color("= ", 34) + "Browser " + this.build.color(this.name, "bold") + " connected");
+				break;
 			case "assertionDone":
+				data.index = ++this.index;
 				if (data.result === false) {
 					if (!this.results[data.module]) {
 						this.results[data.module] = [];
@@ -311,7 +292,28 @@ var Server = Classify.create({
 		}
 		var self = this;
 		this.server = http.createServer(function(request, response) {
-			var uri = url.parse(request.url).pathname, filename = path.join(self.build.dir.base, uri);
+			var uri = url.parse(request.url).pathname, filename = path.join(self.build.dir.base, uri), body;
+
+			if (request.method === "POST") {
+				var body = '';
+				request.on('data', function(data) {
+					body += data;
+				});
+				request.on('end', function() {
+					var data = qs.parse(body);
+
+					JSON.parse(data.data || "{}").forEach(function(req) {
+						self.list.getBrowser(data.browser).logEvent(req.event, req.data || {});
+					});
+
+					response.writeHead(200, {
+						"Content-Type" : "text/plain"
+					});
+					response.write("200 Ok\n");
+					response.end();
+				});
+				return;
+			}
 			self.build.printTemp(filename);
 			fs.exists(filename, function(exists) {
 				if (!exists) {
@@ -362,16 +364,6 @@ var Server = Classify.create({
 				self.build.printLine("Possibly create a reverse tunnel with: \"ssh -f -R " + port + ":localhost:" + port + " " + host + " -N\"");
 				setTimeout(callback, 1);
 			}
-		});
-
-		io.listen(this.server, {
-			log : false,
-			transports : [ "websocket", "flashsocket", "htmlfile", "jsonp-polling" ],
-			"flash policy port" : parseInt(this.build.getOption("browserstack.port") || 80, 10)
-		}).sockets.on("connection", function(socket) {
-			socket.on("browserConnect", function(data) {
-				self.list.getBrowser(data.browser).setSocket(socket);
-			});
 		});
 
 		return this;
