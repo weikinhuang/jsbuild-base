@@ -6,6 +6,8 @@ path = require("path"),
 childProcess = require("child_process"),
 // the util library
 util = require("util"),
+// the zlib library
+zlib = require("zlib"),
 // quick reference to root dir
 __DIR__ = path.dirname(__dirname),
 // classify library
@@ -24,19 +26,6 @@ var colors = {
 	cyan : 36,
 	white : 37
 };
-
-function gzip(data, callback) {
-	var child = childProcess.spawn("gzip", [ "-c", "-q", "-" ]), output = "";
-	// Promise events
-	child.stdout.setEncoding("utf8");
-	child.stdout.on("data", function(stdout) {
-		output += stdout.toString();
-	});
-	child.on("exit", function(code) {
-		callback(output, output.length);
-	});
-	child.stdin.end((data || "").toString(), "utf8");
-}
 
 var Build = Classify.create({
 	__static_ : {
@@ -305,9 +294,10 @@ var Build = Classify.create({
 		}
 		var self = this;
 		this.getMinifiedSource(function(src) {
-			gzip(src, function(data) {
+			zlib.gzip(src, function(err, output) {
+				var data = output.toString();
 				self.sourceCache.gzip = data;
-				callback(data);
+				callback(output.toString());
 			});
 		});
 	},
